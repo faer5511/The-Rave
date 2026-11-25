@@ -1,22 +1,42 @@
 """API админки: /api/admin/*. Всё, кроме /login, закрыто cookie-сессией."""
+
 import csv
 import io
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from .auth import COOKIE, require_admin
-from .account_auth import LoginIn as AccountLoginIn, admin_login as account_admin_login, verify_csrf
+from .account_auth import (
+    LoginIn as AccountLoginIn,
+    admin_login as account_admin_login,
+    verify_csrf,
+)
 from .config import settings
 from .db import SessionLocal, get_session
 from .models import (
-    Event, Order, OrderItem, OrderStatus, Payment, PaymentStatus, PriceTier, PromoCode, PromoKind,
-    Ticket, TicketCategory, TicketStatus, _aware, category_availability, utcnow,
+    Event,
+    Order,
+    OrderItem,
+    OrderStatus,
+    Payment,
+    PaymentStatus,
+    PriceTier,
+    PromoCode,
+    PromoKind,
+    Ticket,
+    TicketCategory,
+    TicketStatus,
+    _aware,
+    category_availability,
+    utcnow,
 )
 from .services import ApiError, current_event, issue_tickets, lock_write, promo_uses
 from .tickets import SARATOV, notify_paid, send_order_email
@@ -67,16 +87,29 @@ def iso(dt: Optional[datetime]) -> Optional[str]:
 
 
 def eff_status(o: Order, now: datetime) -> str:
-    return "expired" if o.status == OrderStatus.pending and _aware(o.expires_at) <= now else o.status.value
+    return (
+        "expired"
+        if o.status == OrderStatus.pending and _aware(o.expires_at) <= now
+        else o.status.value
+    )
 
 
 def order_row(o: Order, now: datetime) -> dict:
     return {
-        "id": o.id, "short": o.id[:8].upper(), "status": eff_status(o, now), "created_at": iso(o.created_at),
-        "name": o.customer_name, "email": o.email, "phone": o.phone, "telegram": o.telegram,
-        "total": o.total / 100, "discount": o.discount / 100, "promo_code": o.promo_code,
+        "id": o.id,
+        "short": o.id[:8].upper(),
+        "status": eff_status(o, now),
+        "created_at": iso(o.created_at),
+        "name": o.customer_name,
+        "email": o.email,
+        "phone": o.phone,
+        "telegram": o.telegram,
+        "total": o.total / 100,
+        "discount": o.discount / 100,
+        "promo_code": o.promo_code,
         "items": ", ".join("%s × %d" % (i.category_name, i.quantity) for i in o.items),
-        "paid_at": iso(o.paid_at), "email_sent": bool(o.email_sent_at),
+        "paid_at": iso(o.paid_at),
+        "email_sent": bool(o.email_sent_at),
     }
 
 
@@ -93,15 +126,39 @@ def stats(session: Session = Depends(get_session)):
     ev, now = current_event(session), utcnow()
     cats = []
     for c in ev.categories:
-        sold = session.scalar(select(func.coalesce(func.sum(OrderItem.quantity), 0)).join(
-            Order, Order.id == OrderItem.order_id).where(
-            OrderItem.category_id == c.id, Order.status == OrderStatus.paid)) or 0
+        sold = (
+            session.scalar(
+                select(func.coalesce(func.sum(OrderItem.quantity), 0))
+                .join(Order, Order.id == OrderItem.order_id)
+                .where(OrderItem.category_id == c.id, Order.status == OrderStatus.paid)
+            )
+            or 0
+        )
         left = category_availability(session, c.id, now)
-        cats.append({"id": c.id, "name": c.name, "capacity": c.capacity, "sold": sold,
-                     "held": max(0, c.capacity - sold - left), "available": left})
-    revenue = session.scalar(select(func.coalesce(func.sum(Order.total), 0)).where(
-        Order.status == OrderStatus.paid)) or 0
-    paid = session.scalar(select(func.count(Order.id)).where(Order.status == OrderStatus.paid)) or 0
+        cats.append(
+            {
+                "id": c.id,
+                "name": c.name,
+                "capacity": c.capacity,
+                "sold": sold,
+                "held": max(0, c.capacity - sold - left),
+                "available": left,
+            }
+        )
+    revenue = (
+        session.scalar(
+            select(func.coalesce(func.sum(Order.total), 0)).where(
+                Order.status == OrderStatus.paid
+            )
+        )
+        or 0
+    )
+    paid = (
+        session.scalar(
+            select(func.count(Order.id)).where(Order.status == OrderStatus.paid)
+        )
+        or 0
+    )
     return {"revenue": revenue / 100, "paid_orders": paid, "categories": cats}
 
 
@@ -115,17 +172,33 @@ def _filtered(status: Optional[str], q: Optional[str]):
             raise ApiError(422, "bad_status", "Неизвестный статус")
     if q and q.strip():
         like = "%" + q.strip() + "%"
-        stmt = stmt.where(or_(Order.email.ilike(like), Order.phone.ilike(like),
-                              Order.customer_name.ilike(like), Order.id.ilike(like), Order.telegram.ilike(like)))
+        stmt = stmt.where(
+            or_(
+                Order.email.ilike(like),
+                Order.phone.ilike(like),
+                Order.customer_name.ilike(like),
+                Order.id.ilike(like),
+                Order.telegram.ilike(like),
+            )
+        )
     return stmt
 
 
 @router.get("/orders", dependencies=auth)
-def orders_list(status: Optional[str] = None, q: Optional[str] = None, limit: int = 50, offset: int = 0,
-                session: Session = Depends(get_session)):
+def orders_list(
+    status: Optional[str] = None,
+    q: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    session: Session = Depends(get_session),
+):
     stmt = _filtered(status, q)
-    total = session.scalar(select(func.count()).select_from(stmt.order_by(None).subquery()))
-    rows = session.scalars(stmt.limit(max(1, min(limit, 200))).offset(max(0, offset))).all()
+    total = session.scalar(
+        select(func.count()).select_from(stmt.order_by(None).subquery())
+    )
+    rows = session.scalars(
+        stmt.limit(max(1, min(limit, 200))).offset(max(0, offset))
+    ).all()
     now = utcnow()
     return {"total": total, "orders": [order_row(o, now) for o in rows]}
 
@@ -134,11 +207,27 @@ def orders_list(status: Optional[str] = None, q: Optional[str] = None, limit: in
 def order_detail(order_id: str, session: Session = Depends(get_session)):
     o = get_order(session, order_id)
     d = order_row(o, utcnow())
-    d["payments"] = [{"provider": p.provider, "id": p.provider_payment_id, "status": p.status.value,
-                      "amount": p.amount / 100, "needs_refund": bool((p.raw or {}).get("needs_refund")),
-                      "created_at": iso(p.created_at)} for p in o.payments]
-    d["tickets"] = [{"name": t.category.name, "status": t.status.value, "admits": t.admits,
-                     "entered": t.entered_count, "url": "/t/" + t.token} for t in o.tickets]
+    d["payments"] = [
+        {
+            "provider": p.provider,
+            "id": p.provider_payment_id,
+            "status": p.status.value,
+            "amount": p.amount / 100,
+            "needs_refund": bool((p.raw or {}).get("needs_refund")),
+            "created_at": iso(p.created_at),
+        }
+        for p in o.payments
+    ]
+    d["tickets"] = [
+        {
+            "name": t.category.name,
+            "status": t.status.value,
+            "admits": t.admits,
+            "entered": t.entered_count,
+            "url": "/t/" + t.token,
+        }
+        for t in o.tickets
+    ]
     return d
 
 
@@ -156,7 +245,9 @@ def mark_paid(order_id: str):
         if not held:
             for i in o.items:
                 if category_availability(s, i.category_id, now) < i.quantity:
-                    raise ApiError(409, "sold_out", "Билетов «%s» уже не хватает" % i.category_name)
+                    raise ApiError(
+                        409, "sold_out", "Билетов «%s» уже не хватает" % i.category_name
+                    )
         issue_tickets(s, o, now)
         s.commit()
     notify_paid(order_id)
@@ -181,7 +272,10 @@ def refund(order_id: str):
             promo.used_count = max(0, promo.used_count - 1)
         o.status = OrderStatus.refunded
         s.commit()
-    return {"ok": True, "note": "Билеты аннулированы. Деньги верните покупателю в кабинете платёжной системы."}
+    return {
+        "ok": True,
+        "note": "Билеты аннулированы. Деньги верните покупателю в кабинете платёжной системы.",
+    }
 
 
 @router.post("/orders/{order_id}/resend", dependencies=auth)
@@ -200,19 +294,56 @@ def _safe(v) -> str:
 
 
 @router.get("/orders.csv", dependencies=auth)
-def orders_csv(status: Optional[str] = None, q: Optional[str] = None, session: Session = Depends(get_session)):
+def orders_csv(
+    status: Optional[str] = None,
+    q: Optional[str] = None,
+    session: Session = Depends(get_session),
+):
     now, buf = utcnow(), io.StringIO()
     w = csv.writer(buf, delimiter=";")
-    w.writerow(["Заказ", "Создан (Саратов)", "Статус", "Имя", "Email", "Телефон", "Telegram",
-                "Состав", "Сумма ₽", "Промокод", "Оплачен"])
-    fmt = lambda d: _aware(d).astimezone(SARATOV).strftime("%d.%m.%Y %H:%M") if d else ""
+    w.writerow(
+        [
+            "Заказ",
+            "Создан (Саратов)",
+            "Статус",
+            "Имя",
+            "Email",
+            "Телефон",
+            "Telegram",
+            "Состав",
+            "Сумма ₽",
+            "Промокод",
+            "Оплачен",
+        ]
+    )
+    fmt = lambda d: (
+        _aware(d).astimezone(SARATOV).strftime("%d.%m.%Y %H:%M") if d else ""
+    )
     for o in session.scalars(_filtered(status, q)).all():
         r = order_row(o, now)
-        w.writerow([_safe(x) for x in (r["short"], fmt(o.created_at), r["status"], r["name"], r["email"],
-                                      r["phone"], r["telegram"], r["items"], r["total"], r["promo_code"],
-                                      fmt(o.paid_at))])
-    return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
-                    headers={"Content-Disposition": 'attachment; filename="orders.csv"'})
+        w.writerow(
+            [
+                _safe(x)
+                for x in (
+                    r["short"],
+                    fmt(o.created_at),
+                    r["status"],
+                    r["name"],
+                    r["email"],
+                    r["phone"],
+                    r["telegram"],
+                    r["items"],
+                    r["total"],
+                    r["promo_code"],
+                    fmt(o.paid_at),
+                )
+            ]
+        )
+    return Response(
+        "\ufeff" + buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="orders.csv"'},
+    )
 
 
 # ---------- событие ----------
@@ -233,8 +364,22 @@ class EventIn(BaseModel):
     is_published: Optional[bool] = None
 
 
-EVENT_FIELDS = ["title", "eyebrow", "city", "age_limit", "announce", "hero_text", "venue_name", "address",
-                "map_embed", "landmark", "poster_url", "is_published"]
+EVENT_FIELDS = [
+    "title",
+    "eyebrow",
+    "city",
+    "age_limit",
+    "announce",
+    "hero_text",
+    "venue_name",
+    "address",
+    "map_embed",
+    "landmark",
+    "poster_url",
+    "is_published",
+]
+
+MAX_POSTER_SIZE = 8 * 1024 * 1024
 
 
 @router.get("/event", dependencies=auth)
@@ -253,22 +398,80 @@ def event_put(body: EventIn, session: Session = Depends(get_session)):
         if v is not None:
             setattr(ev, k, v)
     if _aware(ev.ends_at) <= _aware(ev.doors_at):
-        raise ApiError(422, "bad_time", "Конец мероприятия должен быть позже открытия дверей")
+        raise ApiError(
+            422, "bad_time", "Конец мероприятия должен быть позже открытия дверей"
+        )
     session.commit()
     return {"ok": True}
+
+
+@router.post("/event/poster", dependencies=auth)
+async def event_poster_upload(
+    file: UploadFile = File(...), session: Session = Depends(get_session)
+):
+    content = await file.read(MAX_POSTER_SIZE + 1)
+    if len(content) > MAX_POSTER_SIZE:
+        raise ApiError(
+            413, "poster_too_large", "Размер изображения не должен превышать 8 МБ"
+        )
+
+    if content.startswith(b"\xff\xd8\xff"):
+        extension = "jpg"
+    elif content.startswith(b"\x89PNG\r\n\x1a\n"):
+        extension = "png"
+    elif content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        extension = "webp"
+    else:
+        raise ApiError(415, "invalid_poster", "Загрузите изображение JPG, PNG или WebP")
+
+    upload_dir = Path(__file__).resolve().parent.parent / "static" / "uploads"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid4().hex}.{extension}"
+    image_path = upload_dir / filename
+    poster_url = f"/uploads/{filename}"
+
+    committed = False
+    try:
+        image_path.write_bytes(content)
+        lock_write(session)
+        ev = current_event(session)
+        ev.poster_url = poster_url
+        session.commit()
+        committed = True
+    finally:
+        if not committed:
+            image_path.unlink(missing_ok=True)
+
+    return {"ok": True, "poster_url": poster_url}
 
 
 # ---------- тарифы и цены ----------
 @router.get("/categories", dependencies=auth)
 def categories_get(session: Session = Depends(get_session)):
     ev = current_event(session)
-    return [{
-        "id": c.id, "code": c.code, "name": c.name, "description": c.description, "capacity": c.capacity,
-        "max_per_order": c.max_per_order, "admits": c.admits, "is_active": c.is_active,
-        "is_featured": c.is_featured,
-        "prices": [{"price": p.price / 100, "valid_from": iso(p.valid_from), "valid_until": iso(p.valid_until),
-                    "note": p.note} for p in c.prices],
-    } for c in ev.categories]
+    return [
+        {
+            "id": c.id,
+            "code": c.code,
+            "name": c.name,
+            "description": c.description,
+            "capacity": c.capacity,
+            "max_per_order": c.max_per_order,
+            "admits": c.admits,
+            "is_active": c.is_active,
+            "is_featured": c.is_featured,
+            "prices": [
+                {
+                    "price": p.price / 100,
+                    "valid_from": iso(p.valid_from),
+                    "valid_until": iso(p.valid_until),
+                    "note": p.note,
+                }
+                for p in c.prices
+            ],
+        }
+        for c in ev.categories
+    ]
 
 
 class CategoryIn(BaseModel):
@@ -290,7 +493,11 @@ def category_put(cid: int, body: CategoryIn, session: Session = Depends(get_sess
     if data.get("capacity") is not None:
         taken = c.capacity - category_availability(session, cid, utcnow())
         if data["capacity"] < taken:
-            raise ApiError(409, "capacity_low", "Уже продано или удерживается %d — меньше поставить нельзя" % taken)
+            raise ApiError(
+                409,
+                "capacity_low",
+                "Уже продано или удерживается %d — меньше поставить нельзя" % taken,
+            )
     for k, v in data.items():
         if v is not None:
             setattr(c, k, v)
@@ -299,7 +506,7 @@ def category_put(cid: int, body: CategoryIn, session: Session = Depends(get_sess
 
 
 class PriceIn(BaseModel):
-    price: float = Field(ge=0)                       # в рублях
+    price: float = Field(ge=0)  # в рублях
     valid_from: Optional[datetime] = None
     valid_until: Optional[datetime] = None
     note: str = ""
@@ -318,30 +525,46 @@ def prices_put(cid: int, body: List[PriceIn], session: Session = Depends(get_ses
         session.delete(p)
     session.flush()
     for p in body:
-        session.add(PriceTier(category_id=cid, price=int(round(p.price * 100)), valid_from=p.valid_from,
-                              valid_until=p.valid_until, note=p.note.strip()[:120]))
+        session.add(
+            PriceTier(
+                category_id=cid,
+                price=int(round(p.price * 100)),
+                valid_from=p.valid_from,
+                valid_until=p.valid_until,
+                note=p.note.strip()[:120],
+            )
+        )
     session.commit()
     return {"ok": True}
 
 
 # ---------- промокоды ----------
 def promo_row(p: PromoCode, session: Session, now: datetime) -> dict:
-    return {"id": p.id, "code": p.code, "kind": p.kind.value,
-            "value": p.value if p.kind == PromoKind.percent else p.value / 100,
-            "max_uses": p.max_uses, "used": promo_uses(session, p.id, now), "is_active": p.is_active,
-            "valid_until": iso(p.valid_until)}
+    return {
+        "id": p.id,
+        "code": p.code,
+        "kind": p.kind.value,
+        "value": p.value if p.kind == PromoKind.percent else p.value / 100,
+        "max_uses": p.max_uses,
+        "used": promo_uses(session, p.id, now),
+        "is_active": p.is_active,
+        "valid_until": iso(p.valid_until),
+    }
 
 
 @router.get("/promos", dependencies=auth)
 def promos_get(session: Session = Depends(get_session)):
     now = utcnow()
-    return [promo_row(p, session, now) for p in session.scalars(select(PromoCode).order_by(PromoCode.id)).all()]
+    return [
+        promo_row(p, session, now)
+        for p in session.scalars(select(PromoCode).order_by(PromoCode.id)).all()
+    ]
 
 
 class PromoIn(BaseModel):
     code: str = Field(min_length=2, max_length=40, pattern=r"^[A-Za-z0-9_-]+$")
     kind: str = Field(pattern="^(percent|fixed)$")
-    value: float = Field(gt=0)                       # % или рубли
+    value: float = Field(gt=0)  # % или рубли
     max_uses: Optional[int] = Field(default=None, ge=1)
     valid_until: Optional[datetime] = None
 
@@ -354,9 +577,19 @@ def promo_create(body: PromoIn, session: Session = Depends(get_session)):
     lock_write(session)
     if session.scalar(select(PromoCode).where(PromoCode.code == code)):
         raise ApiError(409, "exists", "Такой код уже есть")
-    session.add(PromoCode(code=code, kind=PromoKind(body.kind), max_uses=body.max_uses,
-                          value=int(round(body.value)) if body.kind == "percent" else int(round(body.value * 100)),
-                          valid_until=body.valid_until))
+    session.add(
+        PromoCode(
+            code=code,
+            kind=PromoKind(body.kind),
+            max_uses=body.max_uses,
+            value=(
+                int(round(body.value))
+                if body.kind == "percent"
+                else int(round(body.value * 100))
+            ),
+            valid_until=body.valid_until,
+        )
+    )
     session.commit()
     return {"ok": True}
 
@@ -386,7 +619,11 @@ def promo_delete(pid: int, session: Session = Depends(get_session)):
     if not p:
         raise ApiError(404, "not_found", "Промокод не найден")
     if session.scalar(select(func.count(Order.id)).where(Order.promo_id == pid)):
-        raise ApiError(409, "in_use", "Код уже использован в заказах — отключите его вместо удаления")
+        raise ApiError(
+            409,
+            "in_use",
+            "Код уже использован в заказах — отключите его вместо удаления",
+        )
     session.delete(p)
     session.commit()
     return {"ok": True}

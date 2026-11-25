@@ -1,8 +1,42 @@
 /* Модальные вход/регистрация и состояние сессии текущего пользователя. */
 import { getCsrfToken } from "./csrf.js";
 
+const AUTH_MODAL_HTML = `
+  <div class="ov" id="authModal" aria-hidden="true">
+    <div class="modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <button class="x" id="authClose" type="button" aria-label="Закрыть">✕</button>
+      <div class="auth-tabs">
+        <button type="button" class="on" id="loginTab">Вход</button>
+        <button type="button" id="registerTab">Регистрация</button>
+      </div>
+      <h3 id="authTitle">Вход</h3>
+      <form id="authLoginForm" novalidate>
+        <div class="field"><label for="authLogin">Логин или email</label><input id="authLogin" autocomplete="username" required></div>
+        <div class="field"><label for="authPassword">Пароль</label><input id="authPassword" type="password" autocomplete="current-password" required></div>
+        <button class="btn btn-red btn-lg" type="submit">Войти</button>
+        <p class="auth-message" id="authLoginMessage"></p>
+        <button class="btn btn-ghost wide resend-link" id="authResend" type="button">Повторно отправить письмо подтверждения</button>
+      </form>
+      <form id="authRegisterForm" class="hide" novalidate>
+        <div class="field"><label for="regName">Имя</label><input id="regName" autocomplete="name" required minlength="2" maxlength="120"></div>
+        <div class="field"><label for="regLogin">Логин</label><input id="regLogin" autocomplete="username" required minlength="3" maxlength="64"></div>
+        <div class="field"><label for="regEmail">Email</label><input id="regEmail" type="email" autocomplete="email" required maxlength="200"></div>
+        <div class="field"><label for="regPassword">Пароль</label><input id="regPassword" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></div>
+        <div class="field"><label for="regPassword2">Повторите пароль</label><input id="regPassword2" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></div>
+        <button class="btn btn-red btn-lg" type="submit">Зарегистрироваться</button>
+        <p class="auth-message" id="authRegisterMessage"></p>
+      </form>
+      <div id="authProfile" class="hide">
+        <p class="profile-name" id="profileName"></p>
+        <p class="profile-detail" id="profileLogin"></p>
+        <p class="profile-detail" id="profileEmail"></p>
+      </div>
+    </div>
+  </div>`;
+
 (function initAuth() {
   "use strict";
+  document.body.insertAdjacentHTML("beforeend", AUTH_MODAL_HTML);
 
   async function api(path, body) {
     const response = await fetch(path, {

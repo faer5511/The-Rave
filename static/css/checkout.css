@@ -1,0 +1,79 @@
+.hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.consent {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13px;
+  color: var(--mute);
+  margin: 4px 0 16px;
+  cursor: pointer;
+}
+.consent input {
+  margin-top: 3px;
+  accent-color: #b3122d;
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.consent a {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.paymeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 16px 0 14px;
+  gap: 12px;
+}
+#payAmt {
+  font-family: Unbounded, sans-serif;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+#payTimer {
+  font-size: 13px;
+  color: var(--mute);
+}
+#payBox {
+  min-height: 180px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #140a0d;
+  border: 1px solid var(--line);
+}
+.mockpay {
+  padding: 26px;
+  text-align: center;
+}
+.mockpay p {
+  color: var(--mute);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+.mockpay b {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--glow);
+  margin-bottom: 8px;
+}
+.tk .left {
+  align-self: flex-start;
+  font-size: 12px;
+  color: var(--mute);
+  margin-bottom: 2px;
+}
+.tk.sold {
+  opacity: 0.55;
+}
+.qty button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}

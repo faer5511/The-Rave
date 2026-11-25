@@ -16,13 +16,30 @@ from .admin import router as admin_router
 from .account_auth import router as account_router
 from .config import settings
 from .db import SessionLocal, engine, get_session
-from .models import Base, Event, Order, OrderStatus, Ticket, _aware, category_availability, utcnow
+from .models import (
+    Base,
+    Event,
+    Order,
+    OrderStatus,
+    Ticket,
+    _aware,
+    category_availability,
+    utcnow,
+)
 from .payments import PaymentError, get_provider
 from .schemas import OrderIn, PromoCheckIn
 from .tickets import notify_paid, render_ticket_page, send_order_email
 from .services import (
-    ApiError, apply_payment_result, create_order, current_event, ensure_payment,
-    expire_stale, find_promo, lock_write, payment_payload, sync_order,
+    ApiError,
+    apply_payment_result,
+    create_order,
+    current_event,
+    ensure_payment,
+    expire_stale,
+    find_promo,
+    lock_write,
+    payment_payload,
+    sync_order,
 )
 
 log = logging.getLogger("rave")
@@ -59,9 +76,15 @@ app = FastAPI(title="THE RAVE", lifespan=lifespan)
 async def security_headers(request: Request, call_next):
     public = urlsplit(settings.public_base_url)
     if public.scheme == "https" and request.url.scheme != "https":
-        canonical_url = urlunsplit((
-            "https", public.netloc, request.url.path, request.url.query, "",
-        ))
+        canonical_url = urlunsplit(
+            (
+                "https",
+                public.netloc,
+                request.url.path,
+                request.url.query,
+                "",
+            )
+        )
         return RedirectResponse(canonical_url, status_code=308)
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -82,12 +105,16 @@ async def security_headers(request: Request, call_next):
 
 @app.exception_handler(ApiError)
 async def _api_error(_req, e: ApiError):
-    return JSONResponse({"error": e.code, "message": e.message, **e.extra}, status_code=e.status)
+    return JSONResponse(
+        {"error": e.code, "message": e.message, **e.extra}, status_code=e.status
+    )
 
 
 @app.exception_handler(RequestValidationError)
 async def _validation(_req, e):
-    return JSONResponse({"error": "validation", "message": "Проверьте данные формы"}, status_code=422)
+    return JSONResponse(
+        {"error": "validation", "message": "Проверьте данные формы"}, status_code=422
+    )
 
 
 app.include_router(admin_router)
@@ -97,6 +124,7 @@ app.include_router(account_router)
 @app.get("/admin", include_in_schema=False)
 def admin_page(request: Request):
     from .auth import require_admin
+
     try:
         require_admin(request)
     except ApiError:
@@ -135,18 +163,34 @@ def event(session: Session = Depends(get_session)):
         if not c.is_active:
             continue
         p, nxt = c.current_price(now), c.next_price(now)
-        cats.append({
-            "id": c.id, "code": c.code, "name": c.name, "description": c.description,
-            "price": (p.price if p else 0) / 100, "note": (p.note if p else ""),
-            "next_price": nxt.price / 100 if nxt else None,
-            "admits": c.admits, "featured": c.is_featured, "max_per_order": c.max_per_order,
-            "available": category_availability(session, c.id, now),
-        })
+        cats.append(
+            {
+                "id": c.id,
+                "code": c.code,
+                "name": c.name,
+                "description": c.description,
+                "price": (p.price if p else 0) / 100,
+                "note": (p.note if p else ""),
+                "next_price": nxt.price / 100 if nxt else None,
+                "admits": c.admits,
+                "featured": c.is_featured,
+                "max_per_order": c.max_per_order,
+                "available": category_availability(session, c.id, now),
+            }
+        )
     return {
-        "title": ev.title, "eyebrow": ev.eyebrow, "city": ev.city, "age": ev.age_limit,
-        "doors_at": ev.doors_at.isoformat(), "ends_at": ev.ends_at.isoformat(),
-        "venue": ev.venue_name, "address": ev.address, "landmark": ev.landmark,
-        "announce": ev.announce, "hero_text": ev.hero_text, "poster_url": ev.poster_url,
+        "title": ev.title,
+        "eyebrow": ev.eyebrow,
+        "city": ev.city,
+        "age": ev.age_limit,
+        "doors_at": ev.doors_at.isoformat(),
+        "ends_at": ev.ends_at.isoformat(),
+        "venue": ev.venue_name,
+        "address": ev.address,
+        "landmark": ev.landmark,
+        "announce": ev.announce,
+        "hero_text": ev.hero_text,
+        "poster_url": ev.poster_url,
         "categories": cats,
     }
 
@@ -162,20 +206,34 @@ def promo_check(body: PromoCheckIn, session: Session = Depends(get_session)):
     return {"code": p.code, "kind": p.kind.value, "value": p.value, "message": msg}
 
 
-def _order_view(session: Session, order: Order, with_payment: bool = True) -> Dict[str, Any]:
+def _order_view(
+    session: Session, order: Order, with_payment: bool = True
+) -> Dict[str, Any]:
     now = utcnow()
     status = order.status.value
     if order.status == OrderStatus.pending and _aware(order.expires_at) <= now:
         status = "expired"
     view = {
-        "order_id": order.id, "status": status, "total": order.total / 100,
-        "discount": order.discount / 100, "promo_code": order.promo_code,
+        "order_id": order.id,
+        "status": status,
+        "total": order.total / 100,
+        "discount": order.discount / 100,
+        "promo_code": order.promo_code,
         "expires_at": _aware(order.expires_at).isoformat(),
-        "items": [{"name": i.category_name, "quantity": i.quantity, "sum": i.line_total / 100}
-                  for i in order.items],
-        "tickets_count": len(order.tickets), "payment": None,
-        "tickets": [{"name": t.category.name, "admits": t.admits, "url": "/t/" + t.token}
-                    for t in order.tickets] if status == "paid" else [],
+        "items": [
+            {"name": i.category_name, "quantity": i.quantity, "sum": i.line_total / 100}
+            for i in order.items
+        ],
+        "tickets_count": len(order.tickets),
+        "payment": None,
+        "tickets": (
+            [
+                {"name": t.category.name, "admits": t.admits, "url": "/t/" + t.token}
+                for t in order.tickets
+            ]
+            if status == "paid"
+            else []
+        ),
     }
     if with_payment and status == "pending":
         pay = ensure_payment(session, order, get_provider())
@@ -186,17 +244,17 @@ def _order_view(session: Session, order: Order, with_payment: bool = True) -> Di
 
 @app.post("/api/orders")
 def orders_create(body: OrderIn, session: Session = Depends(get_session)):
-    if body.website:                                   # honeypot
+    if body.website:  # honeypot
         raise ApiError(400, "bad_request", "Запрос отклонён")
     order = create_order(session, body)
     if order.status == OrderStatus.paid and not order.email_sent_at:
-        notify_paid(order.id)             # бесплатный заказ (скидка 100%)
+        notify_paid(order.id)  # бесплатный заказ (скидка 100%)
     return _order_view(session, order)
 
 
 @app.get("/api/orders/{order_id}")
 def order_get(order_id: str):
-    sync_order(order_id, get_provider())               # подстраховка на случай недошедшего вебхука
+    sync_order(order_id, get_provider())  # подстраховка на случай недошедшего вебхука
     with SessionLocal() as s:
         order = s.scalar(select(Order).where(Order.id == order_id))
         if not order:
@@ -219,9 +277,13 @@ def order_resend(order_id: str):
     """Повторная отправка письма с теми же билетами (не чаще раза в 2 минуты)."""
     res = send_order_email(order_id, force=True)
     if res == "too_soon":
-        raise ApiError(429, "too_soon", "Письмо уже отправлено. Повторить можно через пару минут.")
+        raise ApiError(
+            429, "too_soon", "Письмо уже отправлено. Повторить можно через пару минут."
+        )
     if res in ("skipped", "failed"):
-        raise ApiError(409 if res == "skipped" else 502, res, "Не удалось отправить письмо")
+        raise ApiError(
+            409 if res == "skipped" else 502, res, "Не удалось отправить письмо"
+        )
     return {"ok": True, "mode": res}
 
 
@@ -242,8 +304,10 @@ async def payments_webhook(request: Request):
     try:
         remote = await run_in_threadpool(provider.get_payment, pid)
     except PaymentError:
-        return JSONResponse({"ok": False}, status_code=500)     # пусть ЮKassa повторит
-    await run_in_threadpool(apply_payment_result, "yookassa", pid, remote.get("status", ""), remote)
+        return JSONResponse({"ok": False}, status_code=500)  # пусть ЮKassa повторит
+    await run_in_threadpool(
+        apply_payment_result, "yookassa", pid, remote.get("status", ""), remote
+    )
     return {"ok": True}
 
 
@@ -252,7 +316,9 @@ def mock_pay(payment_id: str):
     """Только для PAYMENT_MODE=mock: имитирует успешную оплату."""
     if settings.payment_mode != "mock":
         raise ApiError(404, "not_found", "Не найдено")
-    oid = apply_payment_result("mock", payment_id, "succeeded", {"id": payment_id, "status": "succeeded"})
+    oid = apply_payment_result(
+        "mock", payment_id, "succeeded", {"id": payment_id, "status": "succeeded"}
+    )
     if not oid:
         raise ApiError(404, "payment_not_found", "Платёж не найден")
     return {"ok": True, "order_id": oid}

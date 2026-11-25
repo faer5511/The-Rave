@@ -1,236 +1,290 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>THE RAVE — билеты</title>
-<meta name="description" content="THE RAVE — 19 декабря 2026, Саратов, Кластер Н. Билеты: Танцпол, Парный танцпол, VIP.">
-<meta name="theme-color" content="#09050a">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Unbounded:wght@300;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css">
-</head>
-<body>
-<div class="ambient"><i></i><i></i><i></i></div>
-<div class="grain"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>THE RAVE — билеты</title>
+    <meta
+      name="description"
+      content="THE RAVE — 19 декабря 2026, Саратов, Кластер Н. Билеты: Танцпол, Парный танцпол, VIP."
+    />
+    <meta name="theme-color" content="#09050a" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Unbounded:wght@300;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/sections.css" />
+    <link rel="stylesheet" href="/css/modals.css" />
+    <link rel="stylesheet" href="/css/responsive.css" />
+    <link rel="stylesheet" href="/css/checkout.css" />
+  </head>
+  <body>
+    <div class="ambient"><i></i><i></i><i></i></div>
+    <div class="grain"></div>
 
-<header id="hdr">
-  <div class="wrap nav">
-    <a href="#top" class="logo">THE RAVE</a>
-    <nav class="links">
-      <a href="#event">Афиша</a>
-      <a href="#tickets">Билеты</a>
-      <a href="#route">Как пройти</a>
-      <a href="#info">Инфо</a>
-    </nav>
-    <button class="btn btn-ghost btn-auth" id="authOpen" type="button">Войти</button>
-    <div class="user-menu hide" id="userMenu">
-      <button class="btn btn-ghost btn-auth" id="userMenuToggle" type="button" aria-expanded="false">
-        <span class="user-avatar" id="userAvatar" aria-hidden="true"></span>
-        <span id="userName"></span>
-      </button>
-      <div class="user-dropdown hide" id="userDropdown">
-        <button type="button" id="profileBtn">Профиль</button>
-        <button type="button" id="logoutBtn">Выйти</button>
-      </div>
-    </div>
-  </div>
-</header>
-
-<main id="top">
-  <div class="hero">
-    <div class="halo"></div>
-    <div class="wrap">
-      <span class="eyebrow" id="eyebrow"></span>
-      <h1>THE<br>RAVE</h1>
-      <div class="meta" id="heroChips"></div>
-      <p class="tag" id="heroText"></p>
-      <div class="cta">
-        <button class="btn btn-red btn-lg" data-scroll="#tickets">Купить билеты</button>
-        <button class="btn btn-ghost btn-lg" data-scroll="#route">Как пройти</button>
-      </div>
-    </div>
-  </div>
-
-  <section id="event">
-    <div class="wrap">
-      <div class="sh reveal"><h2>Афиша</h2></div>
-      <div class="event">
-        <div class="card poster reveal" id="poster"></div>
-        <div class="card evinfo reveal">
-          <h3 id="evTitle"></h3>
-          <div class="meta" id="evChips"></div>
-          <p id="announce"></p>
-          <button class="btn btn-red" data-scroll="#tickets">Купить билеты</button>
-        </div>
-      </div>
-      <div class="card timing reveal">
-        <div class="row">
-          <b id="tDoors"></b>
-          <span>Открытие дверей</span>
-        </div>
-        <div class="row"><b id="tEnd"></b><span>Конец мероприятия</span></div>
-      </div>
-    </div>
-  </section>
-
-  <section id="tickets">
-    <div class="wrap">
-      <div class="sh reveal">
-        <h2>Билеты</h2>
-        <p>Выберите тариф и количество. Если есть промокод — введите его, сумма пересчитается сразу.</p>
-      </div>
-      <div class="tickets" id="tkList"></div>
-      <div class="card sum reveal">
-        <div>
-          <div class="t" id="sumInfo">Билеты не выбраны</div>
-          <div class="v" id="sumVal">0 ₽</div>
-          <div class="disc" id="sumDisc"></div>
-        </div>
-        <div>
-          <div class="promo">
-            <input id="promoIn" placeholder="Промокод" autocomplete="off" autocapitalize="characters" aria-label="Промокод">
-            <button class="btn btn-ghost" id="promoBtn" type="button">Применить</button>
-          </div>
-          <div class="pmsg" id="pmsg"></div>
-        </div>
-        <button class="btn btn-red btn-lg" id="buyBtn" disabled>Оформить и оплатить</button>
-      </div>
-    </div>
-  </section>
-
-  <section id="route">
-    <div class="wrap">
-      <div class="sh reveal"><h2>Как пройти</h2></div>
-      <div class="route">
-        <div class="card map reveal" id="mapBox"></div>
-        <div class="card rinfo reveal">
-          <h3 id="rVenue"></h3>
-          <div class="addr" id="rAddr"></div>
-          <ul id="rList"></ul>
-          <div class="btns">
-            <a class="btn btn-red" id="rOpen" target="_blank" rel="noopener">Открыть в картах</a>
-            <button class="btn btn-ghost" id="rCopy" type="button">Скопировать адрес</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="info">
-    <div class="wrap">
-      <div class="sh reveal"><h2>Инфо</h2></div>
-      <div class="info reveal" id="infoBox"></div>
-    </div>
-  </section>
-</main>
-
-<footer>
-  <div class="wrap"><span>© THE RAVE</span>
-    <span>Оплата картой и через СБП</span>
-  </div>
-</footer>
-
-<!-- order modal -->
-<div class="ov" id="ov" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
-    <button class="x" id="mClose" aria-label="Закрыть">✕</button>
-    <div id="stForm">
-      <h3 id="mTitle">Оформление билетов</h3>
-      <div class="order" id="orderBox"></div>
-      <form id="form" novalidate>
-        <div class="field">
-          <label for="fName">Имя</label>
-          <input id="fName" autocomplete="name" placeholder="Иван Петров">
-          <div class="err">Введите имя</div>
-        </div>
-        <div class="field">
-          <label for="fMail">Email (сюда придут билеты)</label>
-          <input id="fMail" type="email" autocomplete="email" placeholder="you@mail.com">
-          <div class="err">Проверьте email</div>
-        </div>
-
-        <div class="field">
-          <label for="fPhone">Телефон</label>
-          <input id="fPhone" type="tel" autocomplete="tel" placeholder="+7 900 000-00-00">
-          <div class="err">Проверьте номер телефона</div>
-        </div>
-        <div class="field">
-          <label for="fTg">Telegram (необязательно)</label>
-          <input id="fTg" autocomplete="off" placeholder="@username"><div class="err">Формат: @username (5–32 символа)</div></div>
-        <input class="hp" id="fWebsite" tabindex="-1" autocomplete="off" aria-hidden="true">
-        <label class="consent"><input type="checkbox" id="fConsent">
-          <span>
-            Согласен с <a href="#" target="_blank" rel="noopener">офертой</a>
-            и обработкой персональных данных
-          </span>
-        </label>
-        <button class="btn btn-red btn-lg" id="sendBtn" type="submit">
-          Перейти к оплате
+    <header id="hdr">
+      <div class="wrap nav">
+        <a href="#top" class="logo">THE RAVE</a>
+        <nav class="links">
+          <a href="#event">Афиша</a>
+          <a href="#tickets">Билеты</a>
+          <a href="#route">Как пройти</a>
+          <a href="#info">Инфо</a>
+        </nav>
+        <button class="btn btn-ghost btn-auth" id="authOpen" type="button">
+          Войти
         </button>
-          <p class="note2">Оплата откроется прямо здесь. Билеты удерживаются 15 минут.</p>
-      </form>
-    </div>
-    <div id="stPay" class="hide">
-      <h3>Оплата</h3>
-      <div class="paymeta"><span id="payAmt"></span><span id="payTimer"></span></div>
-      <div id="payBox"></div>
-      <p class="note2" id="payNote"></p>
-    </div>
-    <div id="stDone" class="done hide">
-      <div class="ok">
-        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"    stroke-linecap="round" stroke-linejoin="round">
-          <path d="M5 12.5l4.5 4.5L19 7.5"/>
-        </svg>
+        <div class="user-menu hide" id="userMenu">
+          <button
+            class="btn btn-ghost btn-auth"
+            id="userMenuToggle"
+            type="button"
+            aria-expanded="false"
+          >
+            <span class="user-avatar" id="userAvatar" aria-hidden="true"></span>
+            <span id="userName"></span>
+          </button>
+          <div class="user-dropdown hide" id="userDropdown">
+            <button type="button" id="profileBtn">Профиль</button>
+            <button type="button" id="logoutBtn">Выйти</button>
+          </div>
+        </div>
       </div>
-      <h3 style="padding:0" id="doneTitle">Оплата прошла</h3>
-      <div class="amt" id="doneAmt"></div>
-      <p id="doneText"></p>
-      <div class="stack" id="ticketLinks" style="margin:16px 0"></div>
-      <div class="stack">
-        <button class="btn btn-ghost wide" id="doneClose" type="button">Готово</button>
+    </header>
+
+    <main id="top">
+      <div class="hero">
+        <div class="halo"></div>
+        <div class="wrap">
+          <span class="eyebrow" id="eyebrow"></span>
+          <h1>THE<br />RAVE</h1>
+          <div class="meta" id="heroChips"></div>
+          <p class="tag" id="heroText"></p>
+          <div class="cta">
+            <button class="btn btn-red btn-lg" data-scroll="#tickets">
+              Купить билеты
+            </button>
+            <button class="btn btn-ghost btn-lg" data-scroll="#route">
+              Как пройти
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <section id="event">
+        <div class="wrap">
+          <div class="sh reveal"><h2>Афиша</h2></div>
+          <div class="event">
+            <div class="card poster reveal" id="poster"></div>
+            <div class="card evinfo reveal">
+              <h3 id="evTitle"></h3>
+              <div class="meta" id="evChips"></div>
+              <p id="announce"></p>
+              <button class="btn btn-red" data-scroll="#tickets">
+                Купить билеты
+              </button>
+            </div>
+          </div>
+          <div class="card timing reveal">
+            <div class="row">
+              <b id="tDoors"></b>
+              <span>Открытие дверей</span>
+            </div>
+            <div class="row">
+              <b id="tEnd"></b><span>Конец мероприятия</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tickets">
+        <div class="wrap">
+          <div class="sh reveal">
+            <h2>Билеты</h2>
+            <p>
+              Выберите тариф и количество. Если есть промокод — введите его,
+              сумма пересчитается сразу.
+            </p>
+          </div>
+          <div class="tickets" id="tkList"></div>
+          <div class="card sum reveal">
+            <div>
+              <div class="t" id="sumInfo">Билеты не выбраны</div>
+              <div class="v" id="sumVal">0 ₽</div>
+              <div class="disc" id="sumDisc"></div>
+            </div>
+            <div>
+              <div class="promo">
+                <input
+                  id="promoIn"
+                  placeholder="Промокод"
+                  autocomplete="off"
+                  autocapitalize="characters"
+                  aria-label="Промокод"
+                />
+                <button class="btn btn-ghost" id="promoBtn" type="button">
+                  Применить
+                </button>
+              </div>
+              <div class="pmsg" id="pmsg"></div>
+            </div>
+            <button class="btn btn-red btn-lg" id="buyBtn" disabled>
+              Оформить и оплатить
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section id="route">
+        <div class="wrap">
+          <div class="sh reveal"><h2>Как пройти</h2></div>
+          <div class="route">
+            <div class="card map reveal" id="mapBox"></div>
+            <div class="card rinfo reveal">
+              <h3 id="rVenue"></h3>
+              <div class="addr" id="rAddr"></div>
+              <ul id="rList"></ul>
+              <div class="btns">
+                <a class="btn btn-red" id="rOpen" target="_blank" rel="noopener"
+                  >Открыть в картах</a
+                >
+                <button class="btn btn-ghost" id="rCopy" type="button">
+                  Скопировать адрес
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="info">
+        <div class="wrap">
+          <div class="sh reveal"><h2>Инфо</h2></div>
+          <div class="info reveal" id="infoBox"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>© THE RAVE</span>
+        <span>Оплата картой и через СБП</span>
+      </div>
+    </footer>
+
+    <!-- order modal -->
+    <div class="ov" id="ov" aria-hidden="true">
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mTitle"
+      >
+        <button class="x" id="mClose" aria-label="Закрыть">✕</button>
+        <div id="stForm">
+          <h3 id="mTitle">Оформление билетов</h3>
+          <div class="order" id="orderBox"></div>
+          <form id="form" novalidate>
+            <div class="field">
+              <label for="fName">Имя</label>
+              <input id="fName" autocomplete="name" placeholder="Иван Петров" />
+              <div class="err">Введите имя</div>
+            </div>
+            <div class="field">
+              <label for="fMail">Email (сюда придут билеты)</label>
+              <input
+                id="fMail"
+                type="email"
+                autocomplete="email"
+                placeholder="you@mail.com"
+              />
+              <div class="err">Проверьте email</div>
+            </div>
+
+            <div class="field">
+              <label for="fPhone">Телефон</label>
+              <input
+                id="fPhone"
+                type="tel"
+                autocomplete="tel"
+                placeholder="+7 900 000-00-00"
+              />
+              <div class="err">Проверьте номер телефона</div>
+            </div>
+            <div class="field">
+              <label for="fTg">Telegram (необязательно)</label>
+              <input id="fTg" autocomplete="off" placeholder="@username" />
+              <div class="err">Формат: @username (5–32 символа)</div>
+            </div>
+            <input
+              class="hp"
+              id="fWebsite"
+              tabindex="-1"
+              autocomplete="off"
+              aria-hidden="true"
+            />
+            <label class="consent"
+              ><input type="checkbox" id="fConsent" />
+              <span>
+                Согласен с
+                <a href="#" target="_blank" rel="noopener">офертой</a>
+                и обработкой персональных данных
+              </span>
+            </label>
+            <button class="btn btn-red btn-lg" id="sendBtn" type="submit">
+              Перейти к оплате
+            </button>
+            <p class="note2">
+              Оплата откроется прямо здесь. Билеты удерживаются 15 минут.
+            </p>
+          </form>
+        </div>
+        <div id="stPay" class="hide">
+          <h3>Оплата</h3>
+          <div class="paymeta">
+            <span id="payAmt"></span><span id="payTimer"></span>
+          </div>
+          <div id="payBox"></div>
+          <p class="note2" id="payNote"></p>
+        </div>
+        <div id="stDone" class="done hide">
+          <div class="ok">
+            <svg
+              width="34"
+              height="34"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#fff"
+              stroke-width="2.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+          </div>
+          <h3 style="padding: 0" id="doneTitle">Оплата прошла</h3>
+          <div class="amt" id="doneAmt"></div>
+          <p id="doneText"></p>
+          <div class="stack" id="ticketLinks" style="margin: 16px 0"></div>
+          <div class="stack">
+            <button class="btn btn-ghost wide" id="doneClose" type="button">
+              Готово
+            </button>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-</div>
 
-<div class="toast" id="toast" role="status"></div>
+    <div class="toast" id="toast" role="status"></div>
 
-<div class="ov" id="authModal" aria-hidden="true">
-  <div class="modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
-    <button class="x" id="authClose" type="button" aria-label="Закрыть">✕</button>
-    <div class="auth-tabs">
-      <button type="button" class="on" id="loginTab">Вход</button>
-      <button type="button" id="registerTab">Регистрация</button>
-    </div>
-    <h3 id="authTitle">Вход</h3>
-    <form id="authLoginForm" novalidate>
-      <div class="field"><label for="authLogin">Логин или email</label><input id="authLogin" autocomplete="username" required></div>
-      <div class="field"><label for="authPassword">Пароль</label><input id="authPassword" type="password" autocomplete="current-password" required></div>
-      <button class="btn btn-red btn-lg" type="submit">Войти</button>
-      <p class="auth-message" id="authLoginMessage"></p>
-      <button class="btn btn-ghost wide resend-link" id="authResend" type="button">Повторно отправить письмо подтверждения</button>
-    </form>
-    <form id="authRegisterForm" class="hide" novalidate>
-      <div class="field"><label for="regName">Имя</label><input id="regName" autocomplete="name" required minlength="2" maxlength="120"></div>
-      <div class="field"><label for="regLogin">Логин</label><input id="regLogin" autocomplete="username" required minlength="3" maxlength="64"></div>
-      <div class="field"><label for="regEmail">Email</label><input id="regEmail" type="email" autocomplete="email" required maxlength="200"></div>
-      <div class="field"><label for="regPassword">Пароль</label><input id="regPassword" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></div>
-      <div class="field"><label for="regPassword2">Повторите пароль</label><input id="regPassword2" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></div>
-      <button class="btn btn-red btn-lg" type="submit">Зарегистрироваться</button>
-      <p class="auth-message" id="authRegisterMessage"></p>
-    </form>
-    <div id="authProfile" class="hide">
-      <p class="profile-name" id="profileName"></p>
-      <p class="profile-detail" id="profileLogin"></p>
-      <p class="profile-detail" id="profileEmail"></p>
-    </div>
-  </div>
-</div>
-
-<script src="/js/app.js"></script>
-<script src="/js/checkout.js"></script>
-<script type="module" src="/js/auth.js"></script>
-</body>
+    <script src="/js/app.js"></script>
+    <script src="/js/checkout.js"></script>
+    <script type="module" src="/js/auth.js"></script>
+  </body>
 </html>

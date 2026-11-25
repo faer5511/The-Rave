@@ -1,4 +1,5 @@
 """Регистрация и авторизация пользователей: bcrypt, сессии и подтверждение email."""
+
 import hashlib
 import hmac
 import html
@@ -22,7 +23,15 @@ from sqlalchemy.orm import Session
 from .auth import COOKIE, CSRF_COOKIE, TTL, make_session_token
 from .config import settings
 from .db import SessionLocal, get_session
-from .models import AuthRateLimit, EmailVerificationToken, LoginAttempt, User, UserRole, _aware, utcnow
+from .models import (
+    AuthRateLimit,
+    EmailVerificationToken,
+    LoginAttempt,
+    User,
+    UserRole,
+    _aware,
+    utcnow,
+)
 from .services import ApiError
 
 router = APIRouter(prefix="/api/auth")
@@ -30,7 +39,9 @@ log = logging.getLogger("rave.auth")
 
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$")
 LOGIN_RE = re.compile(r"^[A-Za-z0-9_.@-]{3,64}$")
-_DUMMY_PASSWORD_HASH = bcrypt.hashpw(b"invalid-login-timing", bcrypt.gensalt(rounds=12)).decode("ascii")
+_DUMMY_PASSWORD_HASH = bcrypt.hashpw(
+    b"invalid-login-timing", bcrypt.gensalt(rounds=12)
+).decode("ascii")
 
 
 class RegisterIn(BaseModel):
@@ -82,25 +93,37 @@ def clean_email(value: str) -> str:
     return value
 
 
-def rate_limit(session: Session, request: Request, bucket: str, limit: int, seconds: int) -> None:
+def rate_limit(
+    session: Session, request: Request, bucket: str, limit: int, seconds: int
+) -> None:
     ip = request.client.host if request.client else "?"
     client_key = hashlib.sha256(ip.encode("utf-8")).hexdigest()
     now = utcnow()
     cutoff = now - timedelta(seconds=seconds)
     for attempt in range(2):
         session.connection(execution_options={"immediate": True})
-        session.execute(delete(AuthRateLimit).where(
-            AuthRateLimit.window_started_at < now - timedelta(days=1),
-        ))
-        session.execute(delete(LoginAttempt).where(
-            LoginAttempt.at < now - timedelta(days=90),
-        ))
-        row = session.scalar(select(AuthRateLimit).where(
-            AuthRateLimit.bucket == bucket,
-            AuthRateLimit.client_key == client_key,
-        ).with_for_update())
+        session.execute(
+            delete(AuthRateLimit).where(
+                AuthRateLimit.window_started_at < now - timedelta(days=1),
+            )
+        )
+        session.execute(
+            delete(LoginAttempt).where(
+                LoginAttempt.at < now - timedelta(days=90),
+            )
+        )
+        row = session.scalar(
+            select(AuthRateLimit)
+            .where(
+                AuthRateLimit.bucket == bucket,
+                AuthRateLimit.client_key == client_key,
+            )
+            .with_for_update()
+        )
         if not row:
-            row = AuthRateLimit(bucket=bucket, client_key=client_key, window_started_at=now, attempts=0)
+            row = AuthRateLimit(
+                bucket=bucket, client_key=client_key, window_started_at=now, attempts=0
+            )
             session.add(row)
             try:
                 session.flush()
@@ -118,13 +141,20 @@ def rate_limit(session: Session, request: Request, bucket: str, limit: int, seco
         session.commit()
         return
     log.error("Unable to persist auth rate limit bucket=%s", bucket)
-    raise ApiError(503, "rate_limit_unavailable", "Не удалось проверить частоту запросов. Попробуйте позже.")
+    raise ApiError(
+        503,
+        "rate_limit_unavailable",
+        "Не удалось проверить частоту запросов. Попробуйте позже.",
+    )
 
 
 def verify_csrf(request: Request) -> None:
     def reject(message: str) -> None:
-        log.warning("CSRF validation failed ip=%s path=%s",
-                    request.client.host if request.client else "?", request.url.path)
+        log.warning(
+            "CSRF validation failed ip=%s path=%s",
+            request.client.host if request.client else "?",
+            request.url.path,
+        )
         raise ApiError(403, "csrf", message)
 
     cookie = request.cookies.get(CSRF_COOKIE, "")
@@ -135,9 +165,13 @@ def verify_csrf(request: Request) -> None:
     if len(parts) != 3:
         reject("Проверьте сессию и обновите страницу")
     payload, signature = ".".join(parts[:2]), parts[2]
-    expected = hmac.new(settings.secret_key.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    expected = hmac.new(
+        settings.secret_key.encode(), payload.encode(), hashlib.sha256
+    ).hexdigest()
     try:
-        valid = hmac.compare_digest(signature, expected) and int(parts[0]) > int(time.time())
+        valid = hmac.compare_digest(signature, expected) and int(parts[0]) > int(
+            time.time()
+        )
     except ValueError:
         valid = False
     if not valid:
@@ -146,15 +180,20 @@ def verify_csrf(request: Request) -> None:
 
 def set_session(response: JSONResponse, role: str, user_id: int) -> None:
     response.set_cookie(
-        COOKIE, make_session_token(role, user_id), max_age=TTL,
-        httponly=True, samesite="strict",
+        COOKIE,
+        make_session_token(role, user_id),
+        max_age=TTL,
+        httponly=True,
+        samesite="strict",
         secure=settings.public_base_url.startswith("https"),
         path="/",
     )
 
 
 def password_hash(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode("ascii")
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12)).decode(
+        "ascii"
+    )
 
 
 def password_ok(password: str, stored: str) -> bool:
@@ -170,17 +209,22 @@ def token_hash(raw: str) -> str:
 
 def failed_logins(session: Session, ip: str) -> int:
     cutoff = utcnow() - timedelta(minutes=5)
-    return session.scalar(
-        select(func.count(LoginAttempt.id))
-        .where(LoginAttempt.ip == ip)
-        .where(LoginAttempt.succeeded.is_(False))
-        .where(LoginAttempt.at >= cutoff)
-    ) or 0
+    return (
+        session.scalar(
+            select(func.count(LoginAttempt.id))
+            .where(LoginAttempt.ip == ip)
+            .where(LoginAttempt.succeeded.is_(False))
+            .where(LoginAttempt.at >= cutoff)
+        )
+        or 0
+    )
 
 
 def require_smtp_configured() -> None:
     if not settings.smtp_host:
-        raise ApiError(503, "email_disabled", "Регистрация требует настроенной отправки SMTP-почты")
+        raise ApiError(
+            503, "email_disabled", "Регистрация требует настроенной отправки SMTP-почты"
+        )
 
 
 def build_verification_email(name: str, token: str) -> EmailMessage:
@@ -189,14 +233,18 @@ def build_verification_email(name: str, token: str) -> EmailMessage:
     msg = EmailMessage()
     msg["Subject"] = "Подтвердите email — THE RAVE"
     msg["From"] = formataddr(("THE RAVE", settings.smtp_from))
-    msg.set_content("Здравствуйте, %s!\n\nПодтвердите email: %s\n\nСсылка действует 24 часа." % (name, link))
+    msg.set_content(
+        "Здравствуйте, %s!\n\nПодтвердите email: %s\n\nСсылка действует 24 часа."
+        % (name, link)
+    )
     msg.add_alternative(
         '<div style="font-family:Arial,sans-serif;background:#09050a;color:#f6f1f1;padding:24px">'
-        '<b>THE RAVE</b><p>Здравствуйте, %s!</p>'
+        "<b>THE RAVE</b><p>Здравствуйте, %s!</p>"
         '<p><a href="%s" style="display:inline-block;padding:12px 18px;background:#b3122d;color:#fff;'
         'text-decoration:none;border-radius:999px">Подтвердить email</a></p>'
         '<p style="color:#a99d9f;font-size:13px">Ссылка одноразовая и действует 24 часа.</p></div>'
-        % (safe_name, html.escape(link, quote=True)), subtype="html",
+        % (safe_name, html.escape(link, quote=True)),
+        subtype="html",
     )
     return msg
 
@@ -206,7 +254,11 @@ def deliver_verification(email: str, name: str, raw_token: str) -> None:
     msg["To"] = email
     if not settings.smtp_host:
         raise ApiError(503, "email_disabled", "Почтовая отправка не настроена")
-    cls = smtplib.SMTP_SSL if settings.smtp_use_ssl or settings.smtp_port == 465 else smtplib.SMTP
+    cls = (
+        smtplib.SMTP_SSL
+        if settings.smtp_use_ssl or settings.smtp_port == 465
+        else smtplib.SMTP
+    )
     try:
         with cls(settings.smtp_host, settings.smtp_port, timeout=20) as smtp:
             if cls is smtplib.SMTP and settings.smtp_port != 25:
@@ -216,24 +268,37 @@ def deliver_verification(email: str, name: str, raw_token: str) -> None:
             smtp.send_message(msg)
     except (OSError, smtplib.SMTPException):
         log.exception("Verification email delivery failed")
-        raise ApiError(502, "email_delivery_failed", "Не удалось отправить письмо. Повторите попытку позже.")
+        raise ApiError(
+            502,
+            "email_delivery_failed",
+            "Не удалось отправить письмо. Повторите попытку позже.",
+        )
 
 
 @router.get("/csrf")
 def csrf():
     payload = "%d.%s" % (int(time.time()) + 7200, secrets.token_urlsafe(24))
-    signature = hmac.new(settings.secret_key.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    signature = hmac.new(
+        settings.secret_key.encode(), payload.encode(), hashlib.sha256
+    ).hexdigest()
     raw = payload + "." + signature
     response = JSONResponse({"csrf": raw})
     response.set_cookie(
-        CSRF_COOKIE, raw, max_age=7200, httponly=True,
-        samesite="strict", secure=settings.public_base_url.startswith("https"), path="/",
+        CSRF_COOKIE,
+        raw,
+        max_age=7200,
+        httponly=True,
+        samesite="strict",
+        secure=settings.public_base_url.startswith("https"),
+        path="/",
     )
     return response
 
 
 @router.post("/register")
-def register(body: RegisterIn, request: Request, session: Session = Depends(get_session)):
+def register(
+    body: RegisterIn, request: Request, session: Session = Depends(get_session)
+):
     verify_csrf(request)
     rate_limit(session, request, "register", 5, 3600)
     require_smtp_configured()
@@ -245,20 +310,34 @@ def register(body: RegisterIn, request: Request, session: Session = Depends(get_
         raise ApiError(422, "password_mismatch", "Пароли не совпадают")
     if len(set(body.password)) < 3:
         raise ApiError(422, "weak_password", "Используйте более сложный пароль")
-    if session.scalar(select(User).where((User.login == login) | (User.email == email))):
+    if session.scalar(
+        select(User).where((User.login == login) | (User.email == email))
+    ):
         return JSONResponse(
-            {"ok": True, "message": "Если регистрация возможна, проверьте почту или запросите письмо повторно."},
+            {
+                "ok": True,
+                "message": "Если регистрация возможна, проверьте почту или запросите письмо повторно.",
+            },
             status_code=200,
         )
-    user = User(login=login, email=email, name=name, password_hash=password_hash(body.password), role=UserRole.user)
+    user = User(
+        login=login,
+        email=email,
+        name=name,
+        password_hash=password_hash(body.password),
+        role=UserRole.user,
+    )
     session.add(user)
     raw = secrets.token_urlsafe(32)
     try:
         session.flush()
-        session.add(EmailVerificationToken(
-            user_id=user.id, token_hash=token_hash(raw),
-            expires_at=utcnow() + timedelta(hours=settings.verification_hours),
-        ))
+        session.add(
+            EmailVerificationToken(
+                user_id=user.id,
+                token_hash=token_hash(raw),
+                expires_at=utcnow() + timedelta(hours=settings.verification_hours),
+            )
+        )
         session.commit()
     except IntegrityError:
         session.rollback()
@@ -270,7 +349,10 @@ def register(body: RegisterIn, request: Request, session: Session = Depends(get_
         deliver_verification(email, name, raw)
     except ApiError as error:
         log.warning("Verification email failed for user_id=%d: %s", user.id, error.code)
-    return {"ok": True, "message": "Если регистрация возможна, проверьте почту или запросите письмо повторно."}
+    return {
+        "ok": True,
+        "message": "Если регистрация возможна, проверьте почту или запросите письмо повторно.",
+    }
 
 
 @router.post("/login")
@@ -280,10 +362,17 @@ def login(body: LoginIn, request: Request, session: Session = Depends(get_sessio
     ip = request.client.host if request.client else ""
     if failed_logins(session, ip) >= 5:
         log.warning("Login temporarily blocked ip=%s", ip)
-        raise ApiError(429, "too_many", "Слишком много попыток. Попробуйте через несколько минут.")
+        raise ApiError(
+            429, "too_many", "Слишком много попыток. Попробуйте через несколько минут."
+        )
     value = body.login.strip().lower()
-    user = session.scalar(select(User).where((User.login == value) | (User.email == value)))
-    valid = password_ok(body.password, user.password_hash if user else _DUMMY_PASSWORD_HASH) and user is not None
+    user = session.scalar(
+        select(User).where((User.login == value) | (User.email == value))
+    )
+    valid = (
+        password_ok(body.password, user.password_hash if user else _DUMMY_PASSWORD_HASH)
+        and user is not None
+    )
     session.add(LoginAttempt(login=token_hash(value)[:64], ip=ip, succeeded=valid))
     if not valid:
         session.commit()
@@ -291,24 +380,42 @@ def login(body: LoginIn, request: Request, session: Session = Depends(get_sessio
         raise ApiError(401, "bad_credentials", "Неверный логин или пароль")
     if user.role == UserRole.user and not user.email_verified:
         session.commit()
-        raise ApiError(403, "email_not_verified", "Подтвердите email. При необходимости запросите письмо повторно.")
+        raise ApiError(
+            403,
+            "email_not_verified",
+            "Подтвердите email. При необходимости запросите письмо повторно.",
+        )
     session.commit()
-    response = JSONResponse({"ok": True, "user": {"name": user.name, "login": user.login, "role": user.role.value}})
+    response = JSONResponse(
+        {
+            "ok": True,
+            "user": {"name": user.name, "login": user.login, "role": user.role.value},
+        }
+    )
     set_session(response, user.role.value, user.id)
     return response
 
 
 @router.post("/admin/login")
-def admin_login(body: LoginIn, request: Request, session: Session = Depends(get_session)):
+def admin_login(
+    body: LoginIn, request: Request, session: Session = Depends(get_session)
+):
     verify_csrf(request)
     rate_limit(session, request, "admin_login", 8, 300)
     ip = request.client.host if request.client else ""
     if failed_logins(session, ip) >= 5:
         log.warning("Admin login temporarily blocked ip=%s", ip)
-        raise ApiError(429, "too_many", "Слишком много попыток. Попробуйте через несколько минут.")
+        raise ApiError(
+            429, "too_many", "Слишком много попыток. Попробуйте через несколько минут."
+        )
     login = body.login.strip().lower()
-    user = session.scalar(select(User).where(User.login == login).where(User.role == UserRole.admin))
-    valid = password_ok(body.password, user.password_hash if user else _DUMMY_PASSWORD_HASH) and user is not None
+    user = session.scalar(
+        select(User).where(User.login == login).where(User.role == UserRole.admin)
+    )
+    valid = (
+        password_ok(body.password, user.password_hash if user else _DUMMY_PASSWORD_HASH)
+        and user is not None
+    )
     if not valid:
         session.add(LoginAttempt(login=token_hash(login), ip=ip, succeeded=False))
         session.commit()
@@ -332,6 +439,7 @@ def logout(request: Request):
 @router.get("/me")
 def me(request: Request):
     from .auth import read_session
+
     session_info = read_session(request.cookies.get(COOKIE, ""))
     if not session_info:
         return JSONResponse({"authenticated": False}, status_code=200)
@@ -340,17 +448,29 @@ def me(request: Request):
         user = session.get(User, user_id)
     if not user or user.role.value != role:
         return {"authenticated": False}
-    return {"authenticated": True, "user": {
-        "name": user.name, "login": user.login, "email": user.email, "role": role,
-    }}
+    return {
+        "authenticated": True,
+        "user": {
+            "name": user.name,
+            "login": user.login,
+            "email": user.email,
+            "role": role,
+        },
+    }
 
 
 @router.post("/verify-email")
-def verify_email(body: VerifyIn, request: Request, session: Session = Depends(get_session)):
+def verify_email(
+    body: VerifyIn, request: Request, session: Session = Depends(get_session)
+):
     verify_csrf(request)
     rate_limit(session, request, "verify", 20, 3600)
     digest = token_hash(body.token)
-    record = session.scalar(select(EmailVerificationToken).where(EmailVerificationToken.token_hash == digest))
+    record = session.scalar(
+        select(EmailVerificationToken).where(
+            EmailVerificationToken.token_hash == digest
+        )
+    )
     if not record:
         raise ApiError(400, "bad_token", "Неверная ссылка подтверждения")
     if record.used_at:
@@ -384,11 +504,19 @@ def resend(body: ResendIn, request: Request, session: Session = Depends(get_sess
     email = clean_email(body.email)
     user = session.scalar(select(User).where(User.email == email))
     if user and not user.email_verified:
-        latest = session.scalar(select(EmailVerificationToken).where(
-            EmailVerificationToken.user_id == user.id,
-        ).order_by(EmailVerificationToken.created_at.desc()))
+        latest = session.scalar(
+            select(EmailVerificationToken)
+            .where(
+                EmailVerificationToken.user_id == user.id,
+            )
+            .order_by(EmailVerificationToken.created_at.desc())
+        )
         now = utcnow()
-        if not latest or not latest.created_at or (now - _aware(latest.created_at)).total_seconds() >= 60:
+        if (
+            not latest
+            or not latest.created_at
+            or (now - _aware(latest.created_at)).total_seconds() >= 60
+        ):
             session.execute(
                 update(EmailVerificationToken)
                 .where(EmailVerificationToken.user_id == user.id)
@@ -396,13 +524,21 @@ def resend(body: ResendIn, request: Request, session: Session = Depends(get_sess
                 .values(used_at=now)
             )
             raw = secrets.token_urlsafe(32)
-            session.add(EmailVerificationToken(
-                user_id=user.id, token_hash=token_hash(raw),
-                expires_at=now + timedelta(hours=settings.verification_hours),
-            ))
+            session.add(
+                EmailVerificationToken(
+                    user_id=user.id,
+                    token_hash=token_hash(raw),
+                    expires_at=now + timedelta(hours=settings.verification_hours),
+                )
+            )
             session.commit()
             try:
                 deliver_verification(user.email, user.name, raw)
             except ApiError as error:
-                log.warning("Verification resend failed for user_id=%d: %s", user.id, error.code)
-    return {"ok": True, "message": "Если такой email зарегистрирован, письмо отправлено"}
+                log.warning(
+                    "Verification resend failed for user_id=%d: %s", user.id, error.code
+                )
+    return {
+        "ok": True,
+        "message": "Если такой email зарегистрирован, письмо отправлено",
+    }

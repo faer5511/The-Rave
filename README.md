@@ -6,6 +6,19 @@ Run `bash start.sh` from a shell with Python 3. The script creates `.env`, prepa
 the database, creates the initial administrator, and starts the FastAPI server.
 Keep `.env` private; it is excluded by `.gitignore`.
 
+## Code formatting
+
+Install the development tools with `npm install` and `python -m pip install -r requirements-dev.txt`.
+Run `npm run format` for HTML, CSS, JavaScript, and Markdown, or
+`npm run format:python` for Python. Use `npm run format:check` to verify formatting.
+
+Main page styles are split into `base.css`, `sections.css`, `modals.css`,
+`responsive.css`, and `checkout.css`. Keep their loading order in `static/index.html`;
+the order preserves the CSS cascade.
+
+The ticket page markup and styles live in `app/templates/ticket.html`;
+`app/tickets.py` fills it with escaped ticket and event data.
+
 ## Authentication and email
 
 Set these values in `.env`:
@@ -37,6 +50,10 @@ python -m app.seed
 The seed command creates the first admin only if that login does not already
 exist. It stores a bcrypt hash and marks the admin email as verified. Keep the
 bootstrap password in the private `.env`; do not commit it.
+
+Admins can upload an event poster from the Event tab (JPG, PNG, or WebP, up to
+8 MB). Uploaded files are served from `static/uploads`; when no poster is set,
+the site shows the poster text without an image.
 
 ## Database schema updates
 

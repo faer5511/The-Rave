@@ -7,7 +7,10 @@ from .config import settings
 IS_SQLITE = settings.database_url.startswith("sqlite")
 
 if settings.database_url.startswith("sqlite:///./"):
-    os.makedirs(os.path.dirname(settings.database_url.replace("sqlite:///", "")) or ".", exist_ok=True)
+    os.makedirs(
+        os.path.dirname(settings.database_url.replace("sqlite:///", "")) or ".",
+        exist_ok=True,
+    )
 
 engine = create_engine(
     settings.database_url,
@@ -15,9 +18,10 @@ engine = create_engine(
 )
 
 if IS_SQLITE:
+
     @event.listens_for(engine, "connect")
     def _on_connect(dbapi_conn, _):
-        dbapi_conn.isolation_level = None          # транзакциями управляем сами (см. _on_begin)
+        dbapi_conn.isolation_level = None  # транзакциями управляем сами (см. _on_begin)
         cur = dbapi_conn.cursor()
         cur.execute("PRAGMA journal_mode=WAL")
         cur.execute("PRAGMA foreign_keys=ON")
@@ -30,6 +34,7 @@ if IS_SQLITE:
         # так два параллельных заказа не смогут купить последние билеты одновременно.
         immediate = conn.get_execution_options().get("immediate")
         conn.exec_driver_sql("BEGIN IMMEDIATE" if immediate else "BEGIN")
+
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 

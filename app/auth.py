@@ -1,4 +1,5 @@
 """Подписанная краткоживущая cookie-сессия с проверкой роли по БД."""
+
 import hashlib
 import hmac
 import secrets
@@ -21,7 +22,9 @@ log = logging.getLogger("rave.auth")
 
 
 def _sig(payload: str) -> str:
-    return hmac.new(settings.secret_key.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return hmac.new(
+        settings.secret_key.encode(), payload.encode(), hashlib.sha256
+    ).hexdigest()
 
 
 def make_session_token(role: str, user_id: int) -> str:
@@ -57,12 +60,20 @@ def read_session(token: str) -> Optional[tuple]:
 def require_admin(request: Request) -> None:
     session = read_session(request.cookies.get(COOKIE, ""))
     if not session or session[0] != UserRole.admin.value:
-        log.warning("Admin access denied ip=%s path=%s",
-                    request.client.host if request.client else "?", request.url.path)
+        log.warning(
+            "Admin access denied ip=%s path=%s",
+            request.client.host if request.client else "?",
+            request.url.path,
+        )
         raise ApiError(401, "unauthorized", "Нужен вход")
     with SessionLocal() as db:
-        user = db.scalar(select(User).where(User.id == session[1], User.role == UserRole.admin))
+        user = db.scalar(
+            select(User).where(User.id == session[1], User.role == UserRole.admin)
+        )
     if not user:
-        log.warning("Admin access denied for inactive role ip=%s path=%s",
-                    request.client.host if request.client else "?", request.url.path)
+        log.warning(
+            "Admin access denied for inactive role ip=%s path=%s",
+            request.client.host if request.client else "?",
+            request.url.path,
+        )
         raise ApiError(401, "unauthorized", "Нужен вход")

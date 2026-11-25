@@ -60,6 +60,31 @@ async function api(path, method = "GET", body) {
   if (!r.ok) throw new Error(j.message || "Ошибка " + r.status);
   return j;
 }
+async function uploadPoster() {
+  const file = $("#posterFile").files[0];
+  if (!file) throw new Error("Выберите изображение");
+
+  const form = new FormData();
+  form.append("file", file);
+  const response = await fetch("/api/admin/event/poster", {
+    method: "POST",
+    headers: { "X-CSRF-Token": await getCsrfToken() },
+    body: form,
+  });
+  let result = {};
+  try {
+    result = await response.json();
+  } catch (_) {}
+  if (response.status === 401) {
+    showLogin();
+    throw new Error("Нужен вход");
+  }
+  if (!response.ok)
+    throw new Error(result.message || "Ошибка " + response.status);
+
+  $('[data-k="poster_url"]').value = result.poster_url;
+  $("#posterFile").value = "";
+}
 const run = async (f, ok) => {
   try {
     await f();
@@ -339,7 +364,10 @@ const EF = [
   ["address", "Адрес"],
   ["landmark", "Ориентир (каждая строка — пункт)", "area"],
   ["map_embed", "Ссылка или iframe карты (пусто — по адресу)", "area"],
-  ["poster_url", "Ссылка на афишу (https://…)"],
+  [
+    "poster_url",
+    "Афиша (URL или путь на сервере, например /images/poster.jpg)",
+  ],
   ["doors_at", "Открытие дверей (Саратов)", "dt"],
   ["ends_at", "Конец (Саратов)", "dt"],
 ];
@@ -347,8 +375,12 @@ async function loadEvent() {
   const e = await api("/event");
   $("#t-event").innerHTML =
     `<div class="card">${EF.map(([k, l, t]) => `<label>${l}</label>` + (t === "area" ? `<textarea data-k="${k}">${esc(e[k])}</textarea>` : t === "dt" ? `<input data-k="${k}" type="datetime-local" value="${toLocal(e[k])}">` : `<input data-k="${k}" ${t ? 'type="number"' : ""} value="${esc(e[k])}">`)).join("")}
+   <label for="posterFile">Загрузить фото (JPG, PNG, WebP; до 8 МБ)</label>
+   <input id="posterFile" type="file" accept="image/jpeg,image/png,image/webp">
+   <p><button class="btn" id="posterUpload" type="button">Загрузить фото</button></p>
    <label><input type="checkbox" id="pub" ${e.is_published ? "checked" : ""}> Опубликовано</label>
    <p><button class="btn red" id="evSave">Сохранить</button></p></div>`;
+  $("#posterUpload").onclick = () => run(uploadPoster, "Фото загружено");
   $("#evSave").onclick = () =>
     run(async () => {
       const b = { is_published: $("#pub").checked };

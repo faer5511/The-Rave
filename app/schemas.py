@@ -37,7 +37,7 @@ class OrderIn(BaseModel):
     telegram: Optional[str] = None
     consent: bool
     idempotency_key: str
-    website: Optional[str] = None            # honeypot: у людей пустое
+    website: Optional[str] = None  # honeypot: у людей пустое
 
     @field_validator("name")
     @classmethod

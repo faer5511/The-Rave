@@ -72,8 +72,12 @@ const plural = (amount, forms) =>
         ? 1
         : 2
   ];
-const safeUrl = (value) =>
-  /^(https?:\/\/|data:image\/)/i.test((value || "").trim()) ? value.trim() : "";
+const safeUrl = (value) => {
+  const url = (value || "").trim();
+  const isServerPath =
+    url.startsWith("/") && !url.startsWith("//") && !url.includes("\\");
+  return /^(https?:\/\/|data:image\/)/i.test(url) || isServerPath ? url : "";
+};
 
 let cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 const qty = {};
@@ -163,9 +167,10 @@ function applyConfig() {
   $("#tEnd").textContent = cfg.endTime;
 
   const poster = safeUrl(cfg.poster);
-  $("#poster").innerHTML = poster
-    ? `<img src="${esc(poster)}" alt="Афиша THE RAVE">`
-    : `<div class="pt"><b>THE<br>RAVE</b><span>${esc(cfg.dateText)} · ${esc(cfg.venue.name)}</span></div>`;
+  $("#poster").classList.toggle("has-image", Boolean(poster));
+  $("#poster").innerHTML =
+    `${poster ? `<img src="${esc(poster)}" alt="" aria-hidden="true">` : ""}
+    <div class="pt"><b>THE<br>RAVE</b><span>${esc(cfg.dateText)} · ${esc(cfg.venue.name)}</span></div>`;
 
   renderTickets();
   $("#rVenue").textContent = cfg.venue.name;

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Билет THE RAVE</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        display: grid;
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+        place-items: center;
+        background: radial-gradient(circle at 20% 0%, #4a0916, #09050a 60%);
+        color: #f6f1f1;
+        font-family: Inter, system-ui, sans-serif;
+      }
+
+      .ticket {
+        width: min(420px, 100%);
+        padding: 28px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 28px;
+        background: linear-gradient(
+          160deg,
+          rgba(255, 255, 255, 0.07),
+          rgba(255, 255, 255, 0.02)
+        );
+        backdrop-filter: blur(20px);
+      }
+
+      .logo {
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+      }
+
+      .category {
+        margin: 18px 0 4px;
+        font-size: 28px;
+        font-weight: 600;
+      }
+
+      .subtitle,
+      .row span {
+        color: #a99d9f;
+      }
+
+      .subtitle {
+        font-size: 14px;
+      }
+
+      .qr {
+        display: grid;
+        margin: 22px 0;
+        padding: 10px;
+        place-items: center;
+        border-radius: 20px;
+        background: #fff;
+      }
+
+      .qr svg {
+        display: block;
+        width: 100%;
+        max-width: 300px;
+        height: auto;
+        aspect-ratio: 1;
+        shape-rendering: crispEdges;
+      }
+
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.09);
+        font-size: 14px;
+      }
+
+      .status {
+        display: inline-block;
+        margin-top: 6px;
+        padding: 6px 14px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 999px;
+        font-size: 13px;
+      }
+
+      .status-valid {
+        background: rgba(179, 18, 45, 0.35);
+      }
+
+      .status-inactive {
+        background: rgba(120, 120, 120, 0.35);
+      }
+
+      .note {
+        margin-top: 16px;
+        color: #6f6264;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="ticket">
+      <div class="logo">THE RAVE</div>
+      <div class="category">${category_name}</div>
+      <div class="subtitle">Проход: ${admits}</div>
+      <span class="status status-${status_class}">${status}</span>
+      <div class="qr">${qr_svg}</div>
+      <div class="row"><span>Дата</span><b>${date}</b></div>
+      <div class="row"><span>Время</span><b>${doors} — ${end}</b></div>
+      <div class="row"><span>Место</span><b>${venue}</b></div>
+      <div class="row"><span>Адрес</span><b>${address}</b></div>
+      <div class="row"><span>Владелец</span><b>${customer_name}</b></div>
+      <div class="row"><span>Заказ</span><b>${order_id}</b></div>
+      <p class="note">
+        Покажите QR на входе. Не публикуйте билет: по нему пройдут только один
+        раз.
+      </p>
+    </main>
+  </body>
+</html>

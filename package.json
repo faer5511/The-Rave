@@ -5,6 +5,12 @@
   "scripts": {
     "check": "node --check static/js/app.js && node --check static/js/checkout.js && node --check static/js/admin.js && node --check static/js/auth.js && node --check static/js/admin-login.js && node --check static/js/csrf.js",
     "build": "node scripts/build-static.js",
+    "format": "prettier --write \"static/**/*.{html,css,js}\" \"app/templates/*.html\" \"scripts/*.js\" package.json README.md",
+    "format:check": "prettier --check \"static/**/*.{html,css,js}\" \"app/templates/*.html\" \"scripts/*.js\" package.json README.md && node scripts/format-python.js --check",
+    "format:python": "node scripts/format-python.js",
     "start": "python -m uvicorn app.main:app --port 8000"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
   }
 }

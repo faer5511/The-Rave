@@ -4,5 +4,6 @@ __pycache__/
 .venv/
 node_modules/
 dist/
+static/uploads/
 .pytest_cache/
 *.py[cod]

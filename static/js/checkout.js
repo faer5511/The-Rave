@@ -18,7 +18,9 @@
     idemKey = null,
     order = null,
     pollT = null,
-    tickT = null;
+    tickT = null,
+    pollEnabled = false,
+    pollInFlight = false;
 
   async function api(path, opts) {
     let r,
@@ -218,9 +220,10 @@
     );
   };
   const stop = () => {
-    clearInterval(pollT);
+    clearTimeout(pollT);
     clearInterval(tickT);
     pollT = tickT = null;
+    pollEnabled = false;
   };
 
   $$("#form").addEventListener("submit", async (e) => {
@@ -302,7 +305,8 @@
     };
     tick();
     tickT = setInterval(tick, 1000);
-    pollT = setInterval(poll, 3000);
+    pollEnabled = true;
+    pollT = setTimeout(poll, 3000);
     if (r.payment.mode === "mock") renderMock(r.payment);
     else renderYoo(r.payment);
   }
@@ -351,7 +355,10 @@
   }
 
   async function poll() {
-    if (!order) return;
+    if (!order || !pollEnabled || pollInFlight) return;
+    clearTimeout(pollT);
+    pollT = null;
+    pollInFlight = true;
     try {
       const r = await api("/api/orders/" + order.order_id);
       if (r.status === "paid") {
@@ -361,7 +368,11 @@
         stop();
         expired();
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      pollInFlight = false;
+      if (pollEnabled) pollT = setTimeout(poll, 3000);
+    }
   }
 
   function done(r) {
