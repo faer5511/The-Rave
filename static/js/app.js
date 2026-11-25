@@ -152,7 +152,7 @@ function mapSrc() {
 
   return source && /^https:\/\//i.test(source)
     ? source
-    : `https://maps.google.com/maps?q=${encodeURIComponent(cfg.venue.address)}&z=16&output=embed`;
+    : `https://yandex.ru/map-widget/v1/?text=${encodeURIComponent(cfg.venue.address)}&z=16&lang=ru_RU`;
 }
 
 function applyConfig() {

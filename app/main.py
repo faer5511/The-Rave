@@ -96,7 +96,8 @@ async def security_headers(request: Request, call_next):
         "frame-ancestors 'none'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' "
         "https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; "
         "script-src 'self' https://yookassa.ru; frame-src 'self' https://yookassa.ru "
-        "https://maps.google.com https://www.google.com; connect-src 'self' https://yookassa.ru"
+        "https://maps.google.com https://www.google.com https://yandex.ru; "
+        "connect-src 'self' https://yookassa.ru"
     )
     if public.scheme == "https":
         response.headers["Strict-Transport-Security"] = "max-age=31536000"
@@ -187,6 +188,7 @@ def event(session: Session = Depends(get_session)):
         "ends_at": ev.ends_at.isoformat(),
         "venue": ev.venue_name,
         "address": ev.address,
+        "map_embed": ev.map_embed,
         "landmark": ev.landmark,
         "announce": ev.announce,
         "hero_text": ev.hero_text,

@@ -39,7 +39,7 @@
   display: block;
   font-family: Unbounded, sans-serif;
   font-weight: 700;
-  font-size: clamp(36px, 5.5vw, 72px);
+  font-size: clamp(44px, 7vw, 88px);
   line-height: 0.9;
   letter-spacing: -0.04em;
 }
@@ -192,9 +192,24 @@
   margin-top: 22px;
   padding: 24px 28px;
   display: grid;
-  grid-template-columns: 1fr minmax(0, 1.1fr) auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
   align-items: center;
+}
+.sum > div {
+  width: 100%;
+}
+.sum > div:first-child,
+.sum > div:nth-child(2) {
+  text-align: center;
+}
+.sum > div:nth-child(2) {
+  max-width: 440px;
+  justify-self: center;
+  transform: translateY(13px);
+}
+.sum > #buyBtn {
+  justify-self: center;
 }
 .sum .t {
   color: var(--mute);
@@ -251,6 +266,7 @@
   margin-top: 8px;
   min-height: 18px;
   color: var(--mute);
+  text-align: center;
 }
 .pmsg.ok {
   color: #8fe0a8;

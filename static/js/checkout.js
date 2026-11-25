@@ -88,6 +88,7 @@
       Object.assign(cfg.venue, {
         name: ev.venue,
         address: ev.address,
+        map: ev.map_embed || "",
         landmark: ev.landmark || cfg.venue.landmark,
       });
       cfg.tickets = ev.categories.map((c) => ({

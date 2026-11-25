@@ -206,6 +206,10 @@ header.stuck {
   background: rgba(255, 255, 255, 0.09);
   transform: translateY(-2px);
 }
+.btn-auth {
+  min-width: 96px;
+  padding: 12px 26px;
+}
 .btn-auth:hover {
   box-shadow: 0 14px 40px -10px rgba(201, 56, 78, 0.4);
 }
@@ -266,6 +270,7 @@ header.stuck {
   align-items: center;
   padding: 108px 0 64px;
   position: relative;
+  overflow-x: clip;
 }
 .hero h1 {
   font-family: Unbounded, sans-serif;
@@ -278,6 +283,70 @@ header.stuck {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+.logo,
+.hero h1,
+.poster .pt b,
+.evinfo h3 {
+  color: transparent;
+  background-image:
+    linear-gradient(
+      110deg,
+      transparent 37%,
+      rgba(255, 255, 255, 0.14) 43%,
+      rgba(255, 255, 255, 0.48) 50%,
+      rgba(255, 255, 255, 0.14) 57%,
+      transparent 63%
+    ),
+    linear-gradient(180deg, #fff 35%, #e6c9ce 100%);
+  background-size:
+    220% 100%,
+    100% 100%;
+  background-position:
+    0 0,
+    0 0;
+  background-repeat: no-repeat;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: brand-shimmer 6s ease-in-out infinite;
+}
+.logo {
+  animation-delay: -1.8s;
+}
+.hero h1 {
+  animation:
+    brand-shimmer 5.4s ease-in-out infinite,
+    brand-glow 4.6s ease-in-out infinite;
+  animation-delay: -0.7s, 0s;
+}
+.poster .pt b {
+  animation-delay: -3s;
+}
+.evinfo h3 {
+  animation-delay: -4.2s;
+}
+@keyframes brand-shimmer {
+  0%,
+  100% {
+    background-position:
+      0 0,
+      0 0;
+  }
+  50% {
+    background-position:
+      100% 0,
+      0 0;
+  }
+}
+@keyframes brand-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 rgba(201, 56, 78, 0));
+  }
+  50% {
+    filter: drop-shadow(0 0 15px rgba(201, 56, 78, 0.28));
+  }
 }
 .hero .eyebrow {
   display: block;
