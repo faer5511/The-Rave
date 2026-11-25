@@ -1,0 +1,10 @@
+{
+  "name": "rave-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check static/js/app.js && node --check static/js/checkout.js && node --check static/js/admin.js && node --check static/js/auth.js && node --check static/js/admin-login.js && node --check static/js/csrf.js",
+    "build": "node scripts/build-static.js",
+    "start": "python -m uvicorn app.main:app --port 8000"
+  }
+}
