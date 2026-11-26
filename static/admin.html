@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>THE RAVE — админка</title>
-  <link rel="stylesheet" href="/css/admin.css">
+  <link rel="stylesheet" href="/css/admin.css?v=admin-control-style-v7">
 </head>
 
 <body>
@@ -20,10 +20,11 @@
 
   <div id="app" class="hide">
     <div class="top">
-      <h1>THE RAVE · АДМИНКА</h1>
-      <span><a class="btn sm" href="/" target="_blank">Сайт</a>
-        <button class="btn sm" id="logout">Выйти</button>
-      </span>
+      <h1>THE RAVE</h1>
+      <div class="top-actions">
+        <a class="btn" href="/">На главную</a>
+        <button class="btn" id="logout" type="button">Выйти из аккаунта</button>
+      </div>
     </div>
 
     <div class="grid" id="kpis"></div>
@@ -47,6 +48,7 @@
     <section id="t-cats" class="hide"></section>
     <section id="t-promos" class="hide"></section>
     <section id="t-event" class="hide"></section>
+    <section id="t-analytics" class="hide"></section>
   </div>
 </div>
 <div class="ov hide" id="ov">
@@ -54,6 +56,6 @@
 </div>
 <div class="toast hide" id="toast"></div>
 
-<script type="module" src="/js/admin.js"></script>
+<script type="module" src="/js/admin.js?v=admin-controls-v7"></script>
 </body>
 </html>
