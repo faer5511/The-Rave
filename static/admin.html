@@ -1,68 +1,61 @@
 <!doctype html>
 <html lang="ru">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex,nofollow" />
-    <title>THE RAVE — админка</title>
-    <link rel="stylesheet" href="/css/admin.css" />
-  </head>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>THE RAVE — админка</title>
+  <link rel="stylesheet" href="/css/admin.css?v=admin-control-style-v7">
+</head>
 
-  <body>
-    <div class="wrap">
-      <div
-        id="login"
-        class="card hide"
-        style="max-width: 380px; margin: 12vh auto"
-      >
-        <h1>THE RAVE</h1>
-        <label>Пароль администратора</label>
-        <input id="pw" type="password" autocomplete="current-password" />
-        <p style="margin: 16px 0 0">
-          <button class="btn red" id="loginBtn" style="width: 100%">
-            Войти
-          </button>
-        </p>
-      </div>
+<body>
+<div class="wrap">
+  <div id="login" class="card hide" style="max-width:380px;margin:12vh auto">
+    <h1>THE RAVE</h1><label>Пароль администратора</label>
+    <input id="pw" type="password" autocomplete="current-password">
+    <p style="margin:16px 0 0">
+      <button class="btn red" id="loginBtn" style="width:100%">Войти</button>
+    </p>
+  </div>
 
-      <div id="app" class="hide">
-        <div class="top">
-          <h1>THE RAVE · АДМИНКА</h1>
-          <span
-            ><a class="btn sm" href="/" target="_blank">Сайт</a>
-            <button class="btn sm" id="logout">Выйти</button>
-          </span>
-        </div>
-
-        <div class="grid" id="kpis"></div>
-        <div style="height: 16px"></div>
-        <div class="tabs" id="tabs"></div>
-
-        <section id="t-orders">
-          <div class="filters">
-            <input id="q" placeholder="Поиск: имя, email, телефон, номер" />
-            <select id="fst">
-              <option value="">Все статусы</option>
-              <option value="paid">Оплачен</option>
-              <option value="pending">Ждёт оплаты</option>
-              <option value="expired">Истёк</option>
-              <option value="refunded">Возврат</option>
-            </select>
-            <button class="btn" id="findBtn">Найти</button>
-            <a class="btn" id="csv" href="#">CSV</a>
-          </div>
-          <div class="card" id="orders"></div>
-        </section>
-        <section id="t-cats" class="hide"></section>
-        <section id="t-promos" class="hide"></section>
-        <section id="t-event" class="hide"></section>
+  <div id="app" class="hide">
+    <div class="top">
+      <h1>THE RAVE</h1>
+      <div class="top-actions">
+        <a class="btn" href="/">На главную</a>
+        <button class="btn" id="logout" type="button">Выйти из аккаунта</button>
       </div>
     </div>
-    <div class="ov hide" id="ov">
-      <div class="modal" id="modal"></div>
-    </div>
-    <div class="toast hide" id="toast"></div>
 
-    <script type="module" src="/js/admin.js"></script>
-  </body>
+    <div class="grid" id="kpis"></div>
+    <div style="height:16px"></div>
+    <div class="tabs" id="tabs"></div>
+
+    <section id="t-orders">
+      <div class="filters">
+        <input id="q" placeholder="Поиск: имя, email, телефон, номер">
+        <select id="fst"><option value="">Все статусы</option>
+          <option value="paid">Оплачен</option>
+          <option value="pending">Ждёт оплаты</option>
+          <option value="expired">Истёк</option>
+          <option value="refunded">Возврат</option>
+        </select>
+        <button class="btn" id="findBtn">Найти</button>
+        <a class="btn" id="csv" href="#">CSV</a>
+      </div>
+      <div class="card" id="orders"></div>
+    </section>
+    <section id="t-cats" class="hide"></section>
+    <section id="t-promos" class="hide"></section>
+    <section id="t-event" class="hide"></section>
+    <section id="t-analytics" class="hide"></section>
+  </div>
+</div>
+<div class="ov hide" id="ov">
+  <div class="modal" id="modal"></div>
+</div>
+<div class="toast hide" id="toast"></div>
+
+<script type="module" src="/js/admin.js?v=admin-controls-v7"></script>
+</body>
 </html>

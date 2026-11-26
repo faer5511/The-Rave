@@ -2,8 +2,8 @@
 
 import csv
 import io
-from datetime import datetime
 from pathlib import Path
+from datetime import date, datetime, time, timedelta, timezone
 from typing import List, Optional
 from uuid import uuid4
 
@@ -55,7 +55,7 @@ auth.append(Depends(verify_admin_csrf))
 
 # ---------- вход ----------
 class LoginIn(BaseModel):
-    login: str = "admin"
+    login: str = settings.admin_login
     password: str
 
 
@@ -160,6 +160,90 @@ def stats(session: Session = Depends(get_session)):
         or 0
     )
     return {"revenue": revenue / 100, "paid_orders": paid, "categories": cats}
+
+
+@router.get("/analytics", dependencies=auth)
+def analytics(
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    promo_code: Optional[str] = None,
+    session: Session = Depends(get_session),
+):
+    if date_from and date_to and date_from > date_to:
+        raise ApiError(422, "bad_date_range", "Начальная дата не может быть позже конечной")
+
+    saratov = timezone(timedelta(hours=4))
+    filters = [Order.status == OrderStatus.paid]
+    if date_from:
+        start = datetime.combine(date_from, time.min, tzinfo=saratov).astimezone(timezone.utc)
+        filters.append(Order.paid_at >= start)
+    if date_to:
+        end = datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=saratov).astimezone(timezone.utc)
+        filters.append(Order.paid_at < end)
+
+    selected_filters = list(filters)
+    selected_promo = (promo_code or "").strip().upper()
+    if selected_promo:
+        selected_filters.append(Order.promo_code == selected_promo)
+
+    paid_orders, revenue = session.execute(
+        select(func.count(Order.id), func.coalesce(func.sum(Order.total), 0)).where(*selected_filters)
+    ).one()
+    tickets_sold = session.scalar(
+        select(func.coalesce(func.sum(OrderItem.quantity), 0))
+        .join(Order, Order.id == OrderItem.order_id)
+        .where(*selected_filters)
+    ) or 0
+    category_rows = session.execute(
+        select(OrderItem.category_name, func.sum(OrderItem.quantity))
+        .join(Order, Order.id == OrderItem.order_id)
+        .where(*selected_filters)
+        .group_by(OrderItem.category_name)
+        .order_by(OrderItem.category_name)
+    ).all()
+
+    promo_order_rows = session.execute(
+        select(
+            Order.promo_code,
+            func.count(Order.id),
+            func.coalesce(func.sum(Order.total), 0),
+        )
+        .where(*filters, Order.promo_code != "")
+        .group_by(Order.promo_code)
+        .order_by(Order.promo_code)
+    ).all()
+    promo_ticket_rows = session.execute(
+        select(Order.promo_code, func.coalesce(func.sum(OrderItem.quantity), 0))
+        .join(Order, Order.id == OrderItem.order_id)
+        .where(*filters, Order.promo_code != "")
+        .group_by(Order.promo_code)
+    ).all()
+    promo_tickets = dict(promo_ticket_rows)
+    promo_breakdown = [
+        {
+            "code": code,
+            "paid_orders": order_count,
+            "tickets_sold": promo_tickets.get(code, 0),
+            "revenue": total / 100,
+        }
+        for code, order_count, total in promo_order_rows
+    ]
+    promo_codes = set(session.scalars(select(PromoCode.code)).all())
+    promo_codes.update(
+        session.scalars(select(Order.promo_code).where(Order.promo_code != "").distinct()).all()
+    )
+
+    return {
+        "date_from": date_from.isoformat() if date_from else None,
+        "date_to": date_to.isoformat() if date_to else None,
+        "promo_code": selected_promo or None,
+        "tickets_sold": tickets_sold,
+        "paid_orders": paid_orders,
+        "revenue": revenue / 100,
+        "categories": [{"name": name, "tickets_sold": quantity} for name, quantity in category_rows],
+        "promo_codes": sorted(promo_codes),
+        "promo_breakdown": promo_breakdown,
+    }
 
 
 # ---------- заказы ----------

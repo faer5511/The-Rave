@@ -59,6 +59,7 @@ const AUTH_MODAL_HTML = `
   const modal = document.querySelector("#authModal");
   const openButton = document.querySelector("#authOpen");
   const closeButton = document.querySelector("#authClose");
+  let isAdmin = false;
 
   function openModal(tab) {
     modal.classList.add("open");
@@ -111,10 +112,12 @@ const AUTH_MODAL_HTML = `
     const data = await response.json();
     const menu = document.querySelector("#userMenu");
     if (!data.authenticated) {
+      isAdmin = false;
       openButton.classList.remove("hide");
       menu.classList.add("hide");
       return;
     }
+    isAdmin = data.user.role === "admin";
     openButton.classList.add("hide");
     menu.classList.remove("hide");
     document.querySelector("#userName").textContent =
@@ -131,6 +134,9 @@ const AUTH_MODAL_HTML = `
       "Логин: " + data.user.login;
     document.querySelector("#profileEmail").textContent =
       "Email: " + data.user.email;
+    document.querySelector("#profileBtn").textContent = isAdmin
+      ? "Панель управления"
+      : "Профиль";
   }
 
   document
@@ -146,6 +152,10 @@ const AUTH_MODAL_HTML = `
   });
   document.querySelector("#profileBtn").addEventListener("click", () => {
     document.querySelector("#userDropdown").classList.add("hide");
+    if (isAdmin) {
+      location.assign("/admin");
+      return;
+    }
     openModal("profile");
   });
   document.querySelector("#logoutBtn").addEventListener("click", async () => {

@@ -21,6 +21,7 @@ html {
   scroll-behavior: smooth;
   scroll-padding-top: 76px;
   background: var(--bg);
+  overflow-x: clip;
 }
 body {
   background: var(--bg);
@@ -270,7 +271,7 @@ header.stuck {
   align-items: center;
   padding: 108px 0 64px;
   position: relative;
-  overflow-x: clip;
+  overflow: hidden;
 }
 .hero h1 {
   font-family: Unbounded, sans-serif;
