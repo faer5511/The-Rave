@@ -57,7 +57,7 @@ def read_session(token: str) -> Optional[tuple]:
         return None
 
 
-def require_admin(request: Request) -> None:
+def require_admin(request: Request) -> int:
     session = read_session(request.cookies.get(COOKIE, ""))
     if not session or session[0] != UserRole.admin.value:
         log.warning(
@@ -77,3 +77,4 @@ def require_admin(request: Request) -> None:
             request.url.path,
         )
         raise ApiError(401, "unauthorized", "Нужен вход")
+    return session[1]

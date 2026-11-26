@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 import bcrypt
 
-from .db import SessionLocal, engine
+from .db import SessionLocal, engine, ensure_index
 from .models import (
     Base,
     Event,
@@ -13,6 +13,7 @@ from .models import (
     PromoCode,
     PromoKind,
     TicketCategory,
+    USER_LOGIN_CASE_INSENSITIVE_INDEX,
     User,
     UserRole,
 )
@@ -23,11 +24,15 @@ MSK = timezone(timedelta(hours=4))  # Саратов, UTC+4
 
 def run():
     Base.metadata.create_all(engine)
+    ensure_index(USER_LOGIN_CASE_INSENSITIVE_INDEX)
     with SessionLocal() as s:
         if settings.admin_password:
             login = settings.admin_login.strip().lower()
-            admin = s.scalar(select(User).where(User.login == login))
-            if not admin:
+            admin = s.scalar(
+                select(User).where(User.role == UserRole.admin).limit(1)
+            )
+            configured_login = s.scalar(select(User).where(User.login == login))
+            if not admin and not configured_login:
                 s.add(
                     User(
                         login=login,

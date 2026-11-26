@@ -1,6 +1,10 @@
 import { getCsrfToken } from "./csrf.js";
 
 const $ = (s) => document.querySelector(s);
+const profileUpdates =
+  "BroadcastChannel" in window
+    ? new BroadcastChannel("rave-admin-profile")
+    : null;
 const esc = (s) =>
   String(s ?? "").replace(
     /[&<>"']/g,
@@ -41,13 +45,15 @@ function toast(m) {
   tT = setTimeout(() => t.classList.add("hide"), 3000);
 }
 async function api(path, method = "GET", body) {
-  const headers = { "Content-Type": "application/json" };
+  const isFormData = body instanceof FormData;
+  const headers = isFormData ? {} : { "Content-Type": "application/json" };
   if (method !== "GET" && method !== "HEAD")
     headers["X-CSRF-Token"] = await getCsrfToken();
   const r = await fetch("/api/admin" + path, {
     method,
     headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body:
+      body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
   });
   let j = {};
   try {
@@ -143,15 +149,24 @@ document.addEventListener("click", (event) => {
 function showLogin() {
   $("#app").classList.add("hide");
   $("#login").classList.remove("hide");
-  $("#pw").focus();
+  $("#adminLogin").focus();
 }
 $("#loginBtn").onclick = () =>
   run(async () => {
-    await api("/login", "POST", { password: $("#pw").value });
+    if (!$("#adminLogin").value.trim())
+      throw new Error("Введите логин администратора");
+    await api("/login", "POST", {
+      login: $("#adminLogin").value,
+      password: $("#pw").value,
+    });
+    $("#adminLogin").value = "";
     $("#pw").value = "";
     start();
   });
 $("#pw").onkeydown = (e) => {
+  if (e.key === "Enter") $("#loginBtn").click();
+};
+$("#adminLogin").onkeydown = (e) => {
   if (e.key === "Enter") $("#loginBtn").click();
 };
 $("#logout").onclick = async () => {
@@ -166,6 +181,7 @@ const TABS = [
   ["promos", "Промокоды"],
   ["event", "Событие"],
   ["analytics", "Аналитика"],
+  ["profile", "Профиль"],
 ];
 const LOAD = {
   orders: loadOrders,
@@ -173,6 +189,7 @@ const LOAD = {
   promos: loadPromos,
   event: loadEvent,
   analytics: loadAnalytics,
+  profile: loadProfile,
 };
 function tab(id) {
   TABS.forEach(([k]) => $("#t-" + k).classList.toggle("hide", k !== id));
@@ -206,6 +223,134 @@ async function loadStats() {
           `<div class="card kpi"><b>${c.sold} / ${c.capacity}</b><span>${esc(c.name)} · в резерве ${c.held} · свободно ${c.available}</span></div>`,
       )
       .join("");
+}
+
+let profileAvatarPreviewUrl = "";
+function setProfileAvatar(url, login) {
+  const image = $("#profileAvatarPreview");
+  const fallback = $("#profileAvatarFallback");
+  const siteImage = $("#profileSitePreviewAvatar");
+  const siteFallback = $("#profileSitePreviewFallback");
+  const siteLogin = $("#profileSitePreviewLogin");
+  if (!image || !fallback || !siteImage || !siteFallback || !siteLogin) return;
+  siteLogin.textContent = login.trim() || "Ваш логин";
+  if (url) {
+    image.src = url;
+    siteImage.src = url;
+    image.classList.remove("hide");
+    siteImage.classList.remove("hide");
+    fallback.classList.add("hide");
+    siteFallback.classList.add("hide");
+  } else {
+    image.removeAttribute("src");
+    siteImage.removeAttribute("src");
+    image.classList.add("hide");
+    siteImage.classList.add("hide");
+    const initial = (login || "A").trim().charAt(0).toUpperCase();
+    fallback.textContent = initial;
+    fallback.classList.remove("hide");
+    siteFallback.textContent = initial;
+    siteFallback.classList.remove("hide");
+  }
+}
+async function loadProfile() {
+  const profile = await api("/profile");
+  if (profileAvatarPreviewUrl) {
+    URL.revokeObjectURL(profileAvatarPreviewUrl);
+    profileAvatarPreviewUrl = "";
+  }
+  $("#t-profile").innerHTML = `
+    <div class="card profile-card">
+      <h2>Профиль администратора</h2>
+      <p class="profile-intro">Настройте аватар, описание и логин для входа в админ-панель.</p>
+      <form id="profileForm" class="profile-editor">
+        <div class="profile-avatar-column">
+          <div class="profile-avatar-preview">
+            <img id="profileAvatarPreview" class="${profile.avatar_url ? "" : "hide"}" alt="Аватар профиля" ${profile.avatar_url ? `src="${esc(profile.avatar_url)}"` : ""}>
+            <span id="profileAvatarFallback" class="${profile.avatar_url ? "hide" : ""}">${esc((profile.login || "A").trim().charAt(0).toUpperCase())}</span>
+          </div>
+          <div class="profile-avatar-actions">
+            <input id="profileAvatar" class="profile-file-input" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="profileAvatarHelp">
+            <label class="btn profile-file-button" for="profileAvatar">Выбрать файл</label>
+            <button class="btn red profile-save" type="submit">Сохранить профиль</button>
+          </div>
+          <small id="profileAvatarHelp" class="profile-avatar-help">JPG, PNG или WebP, до 5 МБ</small>
+          <small class="profile-avatar-recommendation">Рекомендуемое разрешение: 512 × 512 px</small>
+        </div>
+        <div class="profile-fields">
+          <div>
+            <label for="profileLogin">Логин</label>
+            <input id="profileLogin" autocomplete="username" minlength="3" maxlength="64" required value="${esc(profile.login)}">
+          </div>
+          <div>
+            <label for="profileDescription">Описание</label>
+            <textarea id="profileDescription" maxlength="500" rows="5" placeholder="Расскажите о себе">${esc(profile.description)}</textarea>
+          </div>
+        </div>
+      </form>
+      <div class="profile-site-preview">
+        <div class="profile-site-preview-copy">
+          <span class="profile-site-preview-label">ПРЕДПРОСМОТР</span>
+          <h3>Аккаунт на главной странице</h3>
+          <p>Так будут выглядеть логин и аватар в меню аккаунта после сохранения.</p>
+        </div>
+        <div class="profile-site-preview-header">
+          <span class="profile-site-preview-brand">THE RAVE</span>
+          <div class="profile-site-preview-user">
+            <span class="profile-site-preview-avatar">
+              <img id="profileSitePreviewAvatar" class="${profile.avatar_url ? "" : "hide"}" alt="" ${profile.avatar_url ? `src="${esc(profile.avatar_url)}"` : ""}>
+              <span id="profileSitePreviewFallback" class="${profile.avatar_url ? "hide" : ""}">${esc((profile.login || "A").trim().charAt(0).toUpperCase())}</span>
+            </span>
+            <span id="profileSitePreviewLogin" class="profile-site-preview-login">${esc(profile.login || "Ваш логин")}</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  const avatarInput = $("#profileAvatar");
+  $("#profileLogin").oninput = () =>
+    setProfileAvatar(
+      profileAvatarPreviewUrl || profile.avatar_url,
+      $("#profileLogin").value,
+    );
+  avatarInput.onchange = () => {
+    const file = avatarInput.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      avatarInput.value = "";
+      $("#profileAvatarHelp").textContent = "JPG, PNG или WebP, до 5 МБ";
+      if (profileAvatarPreviewUrl) {
+        URL.revokeObjectURL(profileAvatarPreviewUrl);
+        profileAvatarPreviewUrl = "";
+      }
+      setProfileAvatar(profile.avatar_url, $("#profileLogin").value);
+      toast("Размер аватарки не должен превышать 5 МБ");
+      return;
+    }
+    $("#profileAvatarHelp").textContent = file.name;
+    if (profileAvatarPreviewUrl) URL.revokeObjectURL(profileAvatarPreviewUrl);
+    profileAvatarPreviewUrl = URL.createObjectURL(file);
+    setProfileAvatar(profileAvatarPreviewUrl, $("#profileLogin").value);
+  };
+  $("#profileForm").onsubmit = (event) => {
+    event.preventDefault();
+    run(async () => {
+      const body = new FormData();
+      body.append("login", $("#profileLogin").value);
+      body.append("description", $("#profileDescription").value);
+      if (avatarInput.files[0]) body.append("avatar", avatarInput.files[0]);
+      const saved = await api("/profile", "PUT", body);
+      $("#profileLogin").value = saved.login;
+      $("#profileDescription").value = saved.description;
+      avatarInput.value = "";
+      $("#profileAvatarHelp").textContent = "JPG, PNG или WebP, до 5 МБ";
+      if (profileAvatarPreviewUrl) {
+        URL.revokeObjectURL(profileAvatarPreviewUrl);
+        profileAvatarPreviewUrl = "";
+      }
+      setProfileAvatar(saved.avatar_url, saved.login);
+      if (profileUpdates) profileUpdates.postMessage("updated");
+    }, "Профиль сохранён");
+  };
 }
 
 let analyticsFrom = "";
@@ -261,16 +406,24 @@ function datePickerElements(field, type) {
       trigger: $(`[data-event-calendar="${field}"]`),
     };
   }
+  if (type === "price") {
+    return {
+      input: $(`#${field}-display`),
+      valueInput: $(`[data-price-date-value="${field}"]`),
+      picker: $(`#${field}-picker`),
+      trigger: $(`[data-price-calendar="${field}"]`),
+    };
+  }
   return {
     input: $(`#analytics-${field}`),
     picker: $(`#analytics-${field}-picker`),
     trigger: $(`[data-calendar="${field}"]`),
   };
 }
-function setEventDateTime(field, date, time) {
-  const value = $(`[data-k="${field}"]`);
-  value.value = date && time ? `${date}T${time}` : "";
-  $(`#event-${field}-display`).value = formatEventDateTime(value.value);
+function setDateTimeValue(field, type, date, time) {
+  const { input, valueInput } = datePickerElements(field, type);
+  valueInput.value = date && time ? `${date}T${time}` : "";
+  input.value = formatEventDateTime(valueInput.value);
 }
 function closeDatePicker(returnFocus = false) {
   if (!activeCalendar) return;
@@ -279,19 +432,54 @@ function closeDatePicker(returnFocus = false) {
   elements.picker.classList.add("hide");
   elements.picker.classList.remove("date-time-picker");
   elements.picker.classList.remove("open-above");
+  elements.picker.classList.remove("viewport-fit");
+  elements.picker.style.left = "";
+  elements.picker.style.maxHeight = "";
   elements.picker.innerHTML = "";
   elements.trigger.setAttribute("aria-expanded", "false");
   activeCalendar = null;
   if (returnFocus) elements.input.focus();
+}
+function positionDatePicker(picker) {
+  picker.classList.remove("open-above", "viewport-fit");
+  picker.style.left = "";
+  picker.style.maxHeight = "";
+  const anchor = picker.offsetParent;
+  if (!anchor) return;
+  const margin = 12;
+  const gap = 8;
+  const anchorRect = anchor.getBoundingClientRect();
+  const pickerRect = picker.getBoundingClientRect();
+  const spaceAbove = Math.max(0, anchorRect.top - gap - margin);
+  const spaceBelow = Math.max(
+    0,
+    window.innerHeight - anchorRect.bottom - gap - margin,
+  );
+  if (pickerRect.height > spaceAbove && pickerRect.height > spaceBelow) {
+    picker.classList.add("viewport-fit");
+    picker.style.maxHeight = `${Math.max(0, window.innerHeight - margin * 2)}px`;
+    return;
+  }
+  const maxLeft = Math.max(
+    margin,
+    window.innerWidth - pickerRect.width - margin,
+  );
+  const left = Math.min(Math.max(anchorRect.left, margin), maxLeft);
+  picker.style.left = `${left - anchorRect.left + anchor.scrollLeft}px`;
+
+  const openAbove = pickerRect.height > spaceBelow && spaceAbove > spaceBelow;
+  picker.classList.toggle("open-above", openAbove);
+  picker.style.maxHeight = `${openAbove ? spaceAbove : spaceBelow}px`;
 }
 function renderDatePicker() {
   if (!activeCalendar) return;
   const { field, type, year, month } = activeCalendar;
   const elements = datePickerElements(field, type);
   const { input, picker, valueInput } = elements;
+  const hasTime = type === "event" || type === "price";
   let selectedDate = "";
   let selectedTime = "12:00";
-  if (type === "event") {
+  if (hasTime) {
     const [date, time] = valueInput.value.split("T");
     selectedDate = date || "";
     if (time) selectedTime = time.slice(0, 5);
@@ -340,34 +528,27 @@ function renderDatePicker() {
     </div>
   </div>`;
   const timeControls =
-    type === "event"
+    hasTime
       ? `<div class="date-picker-time">
           <strong>Время</strong>
           <div class="date-picker-time-controls">
             <label class="date-picker-time-control">Часы
-              <input type="number" min="0" max="23" step="1" data-event-hour value="${selectedTime.slice(0, 2)}" aria-label="Часы">
+              <input type="number" min="0" max="23" step="1" data-picker-hour value="${selectedTime.slice(0, 2)}" aria-label="Часы">
             </label>
             <label class="date-picker-time-control">Минуты
-              <input type="number" min="0" max="59" step="1" data-event-minute value="${selectedTime.slice(3, 5)}" aria-label="Минуты">
+              <input type="number" min="0" max="59" step="1" data-picker-minute value="${selectedTime.slice(3, 5)}" aria-label="Минуты">
             </label>
           </div>
         </div>`
       : "";
   picker.innerHTML = `${calendar}${timeControls}`;
-  picker.classList.toggle("date-time-picker", type === "event");
+  picker.classList.toggle("date-time-picker", hasTime);
   picker.classList.remove("hide");
   enhanceNumberInputs(picker);
-  const triggerRect = elements.trigger.getBoundingClientRect();
-  const pickerRect = picker.getBoundingClientRect();
-  const spaceAbove = triggerRect.top;
-  const spaceBelow = window.innerHeight - triggerRect.bottom;
-  picker.classList.toggle(
-    "open-above",
-    spaceBelow < pickerRect.height && spaceAbove > spaceBelow,
-  );
-  const readEventTime = (useFallback = true) => {
-    const hourInput = picker.querySelector("[data-event-hour]");
-    const minuteInput = picker.querySelector("[data-event-minute]");
+  positionDatePicker(picker);
+  const readPickerTime = (useFallback = true) => {
+    const hourInput = picker.querySelector("[data-picker-hour]");
+    const minuteInput = picker.querySelector("[data-picker-minute]");
     const hour = Number(hourInput.value);
     const minute = Number(minuteInput.value);
     if (
@@ -401,9 +582,9 @@ function renderDatePicker() {
   });
   picker.querySelectorAll("[data-date]").forEach((button) => {
     button.onclick = (event) => {
-      if (type === "event") {
+      if (hasTime) {
         event.stopPropagation();
-        setEventDateTime(field, button.dataset.date, readEventTime());
+        setDateTimeValue(field, type, button.dataset.date, readPickerTime());
         renderDatePicker();
         picker.querySelector(`[data-date="${button.dataset.date}"]`).focus();
       } else {
@@ -413,9 +594,9 @@ function renderDatePicker() {
     };
   });
   picker.querySelector("[data-clear]").onclick = (event) => {
-    if (type === "event") {
+    if (hasTime) {
       event.stopPropagation();
-      setEventDateTime(field, "", "");
+      setDateTimeValue(field, type, "", "");
       renderDatePicker();
       picker.querySelector("[data-clear]").focus();
     } else {
@@ -424,9 +605,9 @@ function renderDatePicker() {
     }
   };
   picker.querySelector("[data-today]").onclick = (event) => {
-    if (type === "event") {
+    if (hasTime) {
       event.stopPropagation();
-      setEventDateTime(field, todayInSaratov(), readEventTime());
+      setDateTimeValue(field, type, todayInSaratov(), readPickerTime());
       renderDatePicker();
       picker.querySelector("[data-today]").focus();
     } else {
@@ -434,22 +615,28 @@ function renderDatePicker() {
       closeDatePicker(true);
     }
   };
-  if (type === "event") {
+  if (hasTime) {
     const updateTime = () => {
-      const time = readEventTime(false);
+      const time = readPickerTime(false);
       if (!time) return;
       const date = valueInput.value.split("T")[0] || todayInSaratov();
-      setEventDateTime(field, date, time);
+      setDateTimeValue(field, type, date, time);
       picker.querySelectorAll("[data-date]").forEach((day) => {
         const selected = day.dataset.date === date;
         day.classList.toggle("selected", selected);
         day.setAttribute("aria-pressed", String(selected));
       });
     };
-    picker.querySelector("[data-event-hour]").oninput = updateTime;
-    picker.querySelector("[data-event-minute]").oninput = updateTime;
+    picker.querySelector("[data-picker-hour]").oninput = updateTime;
+    picker.querySelector("[data-picker-minute]").oninput = updateTime;
   }
 }
+window.addEventListener("resize", () => {
+  if (!activeCalendar) return;
+  const { field, type } = activeCalendar;
+  const { picker } = datePickerElements(field, type);
+  if (!picker.classList.contains("hide")) positionDatePicker(picker);
+});
 function closePromoPicker(returnFocus = false) {
   const picker = $("#analytics-promo-picker");
   if (!picker || picker.classList.contains("hide")) return;
@@ -502,10 +689,32 @@ function openEventDatePicker(field) {
   datePickerElements(field, "event").trigger.setAttribute("aria-expanded", "true");
   renderDatePicker();
 }
+function openPriceDatePicker(field) {
+  if (activeCalendar) closeDatePicker();
+  closePromoPicker();
+  closePromoTypePicker();
+  const value =
+    datePickerElements(field, "price").valueInput.value.split("T")[0] ||
+    todayInSaratov();
+  const [year, month] = value.split("-").map(Number);
+  activeCalendar = {
+    field,
+    type: "price",
+    year,
+    month: month - 1,
+  };
+  datePickerElements(field, "price").trigger.setAttribute(
+    "aria-expanded",
+    "true",
+  );
+  renderDatePicker();
+}
 document.addEventListener("click", (event) => {
   if (
     activeCalendar &&
-    !event.target.closest(".analytics-date-field, .event-datetime-field")
+    !event.target.closest(
+      ".analytics-date-field, .event-datetime-field, .price-date-field",
+    )
   )
     closeDatePicker();
   if (!event.target.closest(".analytics-promo-field")) closePromoPicker();
@@ -770,7 +979,28 @@ async function loadCats() {
       enhanceNumberInputs(prices);
     };
     card.addEventListener("click", (e) => {
-      if (e.target.dataset.del !== undefined) e.target.closest(".pr").remove();
+      const dateControl = e.target.closest(
+        "[data-price-calendar], [data-price-date-display]",
+      );
+      if (dateControl) {
+        openPriceDatePicker(
+          dateControl.dataset.priceCalendar ||
+            dateControl.dataset.priceDateDisplay,
+        );
+        return;
+      }
+      const deleteButton = e.target.closest("[data-del]");
+      if (deleteButton) {
+        const row = deleteButton.closest(".pr");
+        if (
+          activeCalendar?.type === "price" &&
+          datePickerElements(activeCalendar.field, "price").picker.closest(
+            ".pr",
+          ) === row
+        )
+          closeDatePicker();
+        row.remove();
+      }
     });
     card.querySelector('[data-save="cat"]').onclick = () =>
       run(async () => {
@@ -798,11 +1028,26 @@ async function loadCats() {
       }, "Цены сохранены");
   });
 }
-const pr = (
-  p,
-) => `<div class="pr"><input data-p="price" type="number" min="0" step="1" value="${p.price}" title="Цена, ₽">
-  <input data-p="from" type="datetime-local" value="${toLocal(p.valid_from)}" title="С"><input data-p="until" type="datetime-local" value="${toLocal(p.valid_until)}" title="До">
+let priceDatePickerSequence = 0;
+function priceDateField(p, key, label, rowId) {
+  const field = `${rowId}-${key}`;
+  const value = toLocal(key === "from" ? p.valid_from : p.valid_until);
+  return `<div class="price-date-field date-entry">
+    <input id="${field}-display" type="text" readonly value="${esc(formatEventDateTime(value))}" placeholder="${label}" title="${label}" aria-label="${label}" aria-haspopup="dialog" aria-controls="${field}-picker" data-price-date-display="${field}">
+    <button class="date-picker-trigger" type="button" data-price-calendar="${field}" aria-label="Выбрать дату и время: ${label}" aria-haspopup="dialog" aria-expanded="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"></rect><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9.5h17"></path></svg>
+    </button>
+    <input data-p="${key}" data-price-date-value="${field}" type="datetime-local" hidden value="${esc(value)}">
+    <div class="date-picker hide" id="${field}-picker" role="dialog" aria-label="Выбор даты и времени: ${label}"></div>
+  </div>`;
+}
+const pr = (p) => {
+  const rowId = `price-${++priceDatePickerSequence}`;
+  return `<div class="pr"><input data-p="price" type="number" min="0" step="1" value="${p.price}" title="Цена, ₽">
+  ${priceDateField(p, "from", "С", rowId)}
+  ${priceDateField(p, "until", "До", rowId)}
   <input data-p="note" class="nt" placeholder="Плашка" value="${esc(p.note)}"><button class="btn sm" data-del>✕</button></div>`;
+};
 
 /* ---- промокоды ---- */
 async function loadPromos() {

@@ -7,21 +7,24 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import List, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .auth import COOKIE, require_admin
 from .account_auth import (
     LoginIn as AccountLoginIn,
     admin_login as account_admin_login,
+    validate_login,
     verify_csrf,
 )
 from .config import settings
 from .db import SessionLocal, get_session
 from .models import (
+    AdminProfile,
     Event,
     Order,
     OrderItem,
@@ -34,6 +37,8 @@ from .models import (
     Ticket,
     TicketCategory,
     TicketStatus,
+    User,
+    UserRole,
     _aware,
     category_availability,
     utcnow,
@@ -79,6 +84,104 @@ def logout(request: Request):
 @router.get("/me", dependencies=auth)
 def me():
     return {"ok": True}
+
+
+PROFILE_AVATAR_MAX_SIZE = 5 * 1024 * 1024
+
+
+@router.get("/profile", dependencies=auth)
+def admin_profile_get(
+    admin_id: int = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    user = session.get(User, admin_id)
+    if not user or user.role != UserRole.admin:
+        raise ApiError(401, "unauthorized", "Нужен вход")
+    profile = session.get(AdminProfile, admin_id)
+    return {
+        "login": user.login,
+        "description": profile.description if profile else "",
+        "avatar_url": profile.avatar_url if profile else None,
+    }
+
+
+@router.put("/profile", dependencies=auth)
+async def admin_profile_put(
+    login: str = Form(..., min_length=3, max_length=64),
+    description: str = Form("", max_length=500),
+    avatar: Optional[UploadFile] = File(None),
+    admin_id: int = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    login = validate_login(login)
+    description = description.strip()
+
+    image = None
+    extension = None
+    if avatar:
+        image = await avatar.read(PROFILE_AVATAR_MAX_SIZE + 1)
+        if len(image) > PROFILE_AVATAR_MAX_SIZE:
+            raise ApiError(
+                413, "avatar_too_large", "Размер аватарки не должен превышать 5 МБ"
+            )
+        if image.startswith(b"\xff\xd8\xff"):
+            extension = "jpg"
+        elif image.startswith(b"\x89PNG\r\n\x1a\n"):
+            extension = "png"
+        elif image[:4] == b"RIFF" and image[8:12] == b"WEBP":
+            extension = "webp"
+        else:
+            raise ApiError(
+                415, "invalid_avatar", "Загрузите изображение JPG, PNG или WebP"
+            )
+
+    lock_write(session)
+    user = session.get(User, admin_id)
+    if not user or user.role != UserRole.admin:
+        raise ApiError(401, "unauthorized", "Нужен вход")
+    if session.scalar(
+        select(User.id).where(
+            func.lower(User.login) == login.lower(), User.id != admin_id
+        )
+    ):
+        raise ApiError(409, "login_taken", "Этот логин уже используется")
+
+    profile = session.get(AdminProfile, admin_id)
+    if profile is None:
+        profile = AdminProfile(user_id=admin_id)
+        session.add(profile)
+    user.login = login
+    profile.description = description
+
+    image_path = None
+    committed = False
+    try:
+        if image is not None and extension is not None:
+            upload_dir = (
+                Path(__file__).resolve().parent.parent
+                / "static"
+                / "uploads"
+                / "avatars"
+            )
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            filename = f"{uuid4().hex}.{extension}"
+            image_path = upload_dir / filename
+            image_path.write_bytes(image)
+            profile.avatar_url = f"/uploads/avatars/{filename}"
+        session.commit()
+        committed = True
+    except IntegrityError as error:
+        session.rollback()
+        raise ApiError(409, "login_taken", "Этот логин уже используется") from error
+    finally:
+        if image_path is not None and not committed:
+            image_path.unlink(missing_ok=True)
+
+    return {
+        "login": user.login,
+        "description": profile.description,
+        "avatar_url": profile.avatar_url,
+    }
 
 
 # ---------- помощники ----------

@@ -5,13 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>THE RAVE — админка</title>
-  <link rel="stylesheet" href="/css/admin.css?v=admin-control-style-v7">
+  <link rel="stylesheet" href="/css/admin.css?v=admin-control-style-v21">
 </head>
 
 <body>
 <div class="wrap">
   <div id="login" class="card hide" style="max-width:380px;margin:12vh auto">
-    <h1>THE RAVE</h1><label>Пароль администратора</label>
+    <h1>THE RAVE</h1>
+    <label for="adminLogin">Логин администратора</label>
+    <input id="adminLogin" autocomplete="username" placeholder="Логин">
+    <label for="pw">Пароль администратора</label>
     <input id="pw" type="password" autocomplete="current-password">
     <p style="margin:16px 0 0">
       <button class="btn red" id="loginBtn" style="width:100%">Войти</button>
@@ -49,6 +52,7 @@
     <section id="t-promos" class="hide"></section>
     <section id="t-event" class="hide"></section>
     <section id="t-analytics" class="hide"></section>
+    <section id="t-profile" class="hide"></section>
   </div>
 </div>
 <div class="ov hide" id="ov">
@@ -56,6 +60,6 @@
 </div>
 <div class="toast hide" id="toast"></div>
 
-<script type="module" src="/js/admin.js?v=admin-controls-v7"></script>
+<script type="module" src="/js/admin.js?v=admin-controls-v17"></script>
 </body>
 </html>

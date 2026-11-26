@@ -15,13 +15,14 @@ from starlette.concurrency import run_in_threadpool
 from .admin import router as admin_router
 from .account_auth import router as account_router
 from .config import settings
-from .db import SessionLocal, engine, get_session
+from .db import SessionLocal, engine, ensure_index, get_session
 from .models import (
     Base,
     Event,
     Order,
     OrderStatus,
     Ticket,
+    USER_LOGIN_CASE_INSENSITIVE_INDEX,
     _aware,
     category_availability,
     utcnow,
@@ -64,6 +65,7 @@ async def _expire_loop():
 @asynccontextmanager
 async def lifespan(_app):
     Base.metadata.create_all(engine)
+    ensure_index(USER_LOGIN_CASE_INSENSITIVE_INDEX)
     task = asyncio.create_task(_expire_loop())
     yield
     task.cancel()
@@ -93,7 +95,7 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; "
-        "frame-ancestors 'none'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' "
+        "frame-ancestors 'none'; img-src 'self' data: https: blob:; style-src 'self' 'unsafe-inline' "
         "https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; "
         "script-src 'self' https://yookassa.ru; frame-src 'self' https://yookassa.ru "
         "https://maps.google.com https://www.google.com https://yandex.ru; "

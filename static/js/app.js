@@ -13,6 +13,7 @@ const DEFAULT_CONFIG = {
   venue: {
     name: "Кластер Н",
     address: "Саратов, Привокзальная площадь, 1Д",
+    mapCenter: "51.5428086,46.0002541",
     map: "",
     landmark:
       "Ориентир — Привокзальная площадь, рядом с железнодорожным вокзалом.\nИщите здание «Кластер Н» по адресу 1Д.\nПриходите заранее: двери открываются в 17:00.",
@@ -149,10 +150,13 @@ function mapSrc() {
   const source = value.startsWith("<")
     ? (value.match(/src=["']([^"']+)["']/i) || [])[1]
     : value;
+  const location = cfg.venue.mapCenter
+    ? `ll=${encodeURIComponent(cfg.venue.mapCenter)}&q=${encodeURIComponent(cfg.venue.mapCenter)}`
+    : `q=${encodeURIComponent(cfg.venue.address)}`;
 
   return source && /^https:\/\//i.test(source)
     ? source
-    : `https://yandex.ru/map-widget/v1/?text=${encodeURIComponent(cfg.venue.address)}&z=16&lang=ru_RU`;
+    : `https://maps.google.com/maps?hl=ru&output=embed&t=k&z=16&${location}`;
 }
 
 function applyConfig() {
@@ -182,7 +186,7 @@ function applyConfig() {
     .map((line) => `<li>${esc(line)}</li>`)
     .join("");
   $("#rOpen").href =
-    `https://yandex.ru/maps/?text=${encodeURIComponent(cfg.venue.address)}`;
+    `https://maps.google.com/maps?hl=ru&t=k&z=16&q=${encodeURIComponent(cfg.venue.address)}`;
 
   const source = mapSrc();
   if (source !== lastMap) {

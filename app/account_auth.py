@@ -24,6 +24,7 @@ from .auth import COOKIE, CSRF_COOKIE, TTL, make_session_token
 from .config import settings
 from .db import SessionLocal, get_session
 from .models import (
+    AdminProfile,
     AuthRateLimit,
     EmailVerificationToken,
     LoginAttempt,
@@ -80,7 +81,11 @@ class VerifyIn(BaseModel):
 
 
 def clean_login(value: str) -> str:
-    value = value.strip().lower()
+    return validate_login(value).lower()
+
+
+def validate_login(value: str) -> str:
+    value = value.strip()
     if not LOGIN_RE.fullmatch(value):
         raise ApiError(422, "bad_login", "Логин содержит недопустимые символы")
     return value
@@ -311,7 +316,7 @@ def register(
     if len(set(body.password)) < 3:
         raise ApiError(422, "weak_password", "Используйте более сложный пароль")
     if session.scalar(
-        select(User).where((User.login == login) | (User.email == email))
+        select(User).where((func.lower(User.login) == login) | (User.email == email))
     ):
         return JSONResponse(
             {
@@ -367,7 +372,7 @@ def login(body: LoginIn, request: Request, session: Session = Depends(get_sessio
         )
     value = body.login.strip().lower()
     user = session.scalar(
-        select(User).where((User.login == value) | (User.email == value))
+        select(User).where((func.lower(User.login) == value) | (User.email == value))
     )
     valid = (
         password_ok(body.password, user.password_hash if user else _DUMMY_PASSWORD_HASH)
@@ -410,7 +415,9 @@ def admin_login(
         )
     login = body.login.strip().lower()
     user = session.scalar(
-        select(User).where(User.login == login).where(User.role == UserRole.admin)
+        select(User)
+        .where(func.lower(User.login) == login)
+        .where(User.role == UserRole.admin)
     )
     valid = (
         password_ok(body.password, user.password_hash if user else _DUMMY_PASSWORD_HASH)
@@ -444,8 +451,16 @@ def me(request: Request):
     if not session_info:
         return JSONResponse({"authenticated": False}, status_code=200)
     role, user_id = session_info
+    avatar_url = None
     with SessionLocal() as session:
         user = session.get(User, user_id)
+        if (
+            user
+            and user.role.value == role
+            and user.role == UserRole.admin
+        ):
+            profile = session.get(AdminProfile, user_id)
+            avatar_url = profile.avatar_url if profile else None
     if not user or user.role.value != role:
         return {"authenticated": False}
     return {
@@ -455,6 +470,7 @@ def me(request: Request):
             "login": user.login,
             "email": user.email,
             "role": role,
+            "avatar_url": avatar_url,
         },
     }
 

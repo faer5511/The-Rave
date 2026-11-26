@@ -192,7 +192,7 @@
   margin-top: 22px;
   padding: 24px 28px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr) auto;
   gap: 24px;
   align-items: center;
 }
@@ -204,7 +204,7 @@
 }
 .sum > div:first-child,
 .sum > div:nth-child(2) {
-  text-align: center;
+  text-align: left;
 }
 .sum > div:nth-child(2) {
   max-width: 440px;
@@ -212,7 +212,7 @@
   transform: translateY(13px);
 }
 .sum > #buyBtn {
-  justify-self: center;
+  justify-self: end;
 }
 .sum .t {
   color: var(--mute);
@@ -298,8 +298,6 @@
   min-width: 0;
   border: 0;
   display: block;
-  filter: grayscale(0.3) invert(0.92) hue-rotate(180deg) contrast(0.88)
-    brightness(0.95);
 }
 .rinfo {
   padding: 30px;

@@ -325,6 +325,22 @@ class User(Base):
     )
 
 
+USER_LOGIN_CASE_INSENSITIVE_INDEX = Index(
+    "uq_users_login_case_insensitive", func.lower(User.login), unique=True
+)
+
+
+class AdminProfile(Base):
+    """Дополнительные данные профиля администратора."""
+
+    __tablename__ = "admin_profiles"
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    avatar_url: Mapped[Optional[str]] = mapped_column(String(500))
+    description: Mapped[str] = mapped_column(Text, default="")
+
+
 class EmailVerificationToken(Base):
     """Одноразовый токен подтверждения email: в БД хранится только его хеш."""
 

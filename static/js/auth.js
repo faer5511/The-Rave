@@ -60,6 +60,10 @@ const AUTH_MODAL_HTML = `
   const openButton = document.querySelector("#authOpen");
   const closeButton = document.querySelector("#authClose");
   let isAdmin = false;
+  const profileUpdates =
+    "BroadcastChannel" in window
+      ? new BroadcastChannel("rave-admin-profile")
+      : null;
 
   function openModal(tab) {
     modal.classList.add("open");
@@ -120,16 +124,22 @@ const AUTH_MODAL_HTML = `
     isAdmin = data.user.role === "admin";
     openButton.classList.add("hide");
     menu.classList.remove("hide");
+    const displayName = isAdmin
+      ? data.user.login
+      : data.user.name || data.user.login;
     document.querySelector("#userName").textContent =
-      data.user.name || data.user.login;
-    document.querySelector("#userAvatar").textContent = (
-      data.user.name || data.user.login
-    )
-      .trim()
-      .charAt(0)
-      .toUpperCase();
-    document.querySelector("#profileName").textContent =
-      data.user.name || data.user.login;
+      displayName;
+    const avatar = document.querySelector("#userAvatar");
+    avatar.replaceChildren();
+    if (isAdmin && data.user.avatar_url) {
+      const image = document.createElement("img");
+      image.src = data.user.avatar_url;
+      image.alt = "";
+      avatar.append(image);
+    } else {
+      avatar.textContent = displayName.trim().charAt(0).toUpperCase();
+    }
+    document.querySelector("#profileName").textContent = displayName;
     document.querySelector("#profileLogin").textContent =
       "Логин: " + data.user.login;
     document.querySelector("#profileEmail").textContent =
@@ -137,6 +147,14 @@ const AUTH_MODAL_HTML = `
     document.querySelector("#profileBtn").textContent = isAdmin
       ? "Панель управления"
       : "Профиль";
+  }
+
+  if (profileUpdates) {
+    profileUpdates.addEventListener("message", () => {
+      loadUser().catch((error) =>
+        console.error("Не удалось обновить профиль администратора", error),
+      );
+    });
   }
 
   document

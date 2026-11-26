@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, event
+from sqlalchemy import Index, create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 
 from .config import settings
@@ -37,6 +37,20 @@ if IS_SQLITE:
 
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+def ensure_index(index: Index) -> None:
+    if engine.dialect.name == "sqlite":
+        with engine.connect() as connection:
+            exists = connection.scalar(
+                text("SELECT 1 FROM sqlite_master WHERE type='index' AND name=:name"),
+                {"name": index.name},
+            )
+        if exists:
+            return
+        index.create(engine, checkfirst=False)
+        return
+    index.create(engine, checkfirst=True)
 
 
 def get_session():
