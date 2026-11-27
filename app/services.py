@@ -160,7 +160,7 @@ def create_order(session: Session, data) -> Order:
         idempotency_key=data.idempotency_key,
         customer_name=data.name,
         email=data.email,
-        phone=data.phone,
+        phone="",
         telegram=data.telegram or "",
         subtotal=subtotal,
         discount=discount,

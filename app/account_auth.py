@@ -80,6 +80,11 @@ class VerifyIn(BaseModel):
     token: str = Field(min_length=32, max_length=128)
 
 
+class VerifyCodeIn(BaseModel):
+    email: str = Field(min_length=3, max_length=200)
+    code: str = Field(pattern=r"^\d{6}$")
+
+
 def clean_login(value: str) -> str:
     return validate_login(value).lower()
 
@@ -212,6 +217,17 @@ def token_hash(raw: str) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def verification_code_hash(user_id: int, code: str) -> str:
+    value = "email-verification-code:%d:%s" % (user_id, code)
+    return hmac.new(
+        settings.secret_key.encode(), value.encode(), hashlib.sha256
+    ).hexdigest()
+
+
+def new_verification_code() -> str:
+    return "%06d" % secrets.randbelow(1_000_000)
+
+
 def failed_logins(session: Session, ip: str) -> int:
     cutoff = utcnow() - timedelta(minutes=5)
     return (
@@ -232,30 +248,31 @@ def require_smtp_configured() -> None:
         )
 
 
-def build_verification_email(name: str, token: str) -> EmailMessage:
-    link = "%s/verify-email?token=%s" % (settings.public_base_url.rstrip("/"), token)
+def build_verification_email(name: str, code: str) -> EmailMessage:
     safe_name = html.escape(name)
+    safe_code = html.escape(code)
     msg = EmailMessage()
     msg["Subject"] = "Подтвердите email — THE RAVE"
     msg["From"] = formataddr(("THE RAVE", settings.smtp_from))
     msg.set_content(
-        "Здравствуйте, %s!\n\nПодтвердите email: %s\n\nСсылка действует 24 часа."
-        % (name, link)
+        "Здравствуйте, %s!\n\nКод подтверждения: %s\n\n"
+        "Код действует 10 минут. Если вы не создавали аккаунт, проигнорируйте это письмо."
+        % (name, code)
     )
     msg.add_alternative(
         '<div style="font-family:Arial,sans-serif;background:#09050a;color:#f6f1f1;padding:24px">'
         "<b>THE RAVE</b><p>Здравствуйте, %s!</p>"
-        '<p><a href="%s" style="display:inline-block;padding:12px 18px;background:#b3122d;color:#fff;'
-        'text-decoration:none;border-radius:999px">Подтвердить email</a></p>'
-        '<p style="color:#a99d9f;font-size:13px">Ссылка одноразовая и действует 24 часа.</p></div>'
-        % (safe_name, html.escape(link, quote=True)),
+        '<p>Ваш код подтверждения:</p><p style="font-size:30px;font-weight:700;letter-spacing:8px;'
+        'color:#fff">%s</p>'
+        '<p style="color:#a99d9f;font-size:13px">Код действует 10 минут. Если вы не создавали аккаунт, '
+        "проигнорируйте это письмо.</p></div>" % (safe_name, safe_code),
         subtype="html",
     )
     return msg
 
 
-def deliver_verification(email: str, name: str, raw_token: str) -> None:
-    msg = build_verification_email(name, raw_token)
+def deliver_verification(email: str, name: str, code: str) -> None:
+    msg = build_verification_email(name, code)
     msg["To"] = email
     if not settings.smtp_host:
         raise ApiError(503, "email_disabled", "Почтовая отправка не настроена")
@@ -321,7 +338,10 @@ def register(
         return JSONResponse(
             {
                 "ok": True,
-                "message": "Если регистрация возможна, проверьте почту или запросите письмо повторно.",
+                "message": (
+                    "Если аккаунт уже существует, запросите код повторно или войдите. "
+                    "Для нового аккаунта продолжите регистрацию."
+                ),
             },
             status_code=200,
         )
@@ -333,14 +353,14 @@ def register(
         role=UserRole.user,
     )
     session.add(user)
-    raw = secrets.token_urlsafe(32)
+    code = new_verification_code()
     try:
         session.flush()
         session.add(
             EmailVerificationToken(
                 user_id=user.id,
-                token_hash=token_hash(raw),
-                expires_at=utcnow() + timedelta(hours=settings.verification_hours),
+                token_hash=verification_code_hash(user.id, code),
+                expires_at=utcnow() + timedelta(minutes=10),
             )
         )
         session.commit()
@@ -348,15 +368,12 @@ def register(
         session.rollback()
         return {
             "ok": True,
-            "message": "Если регистрация возможна, проверьте почту или запросите письмо повторно.",
+            "message": "Если регистрация возможна, введите код из письма или запросите новый.",
         }
-    try:
-        deliver_verification(email, name, raw)
-    except ApiError as error:
-        log.warning("Verification email failed for user_id=%d: %s", user.id, error.code)
+    deliver_verification(email, name, code)
     return {
         "ok": True,
-        "message": "Если регистрация возможна, проверьте почту или запросите письмо повторно.",
+        "message": "Если регистрация возможна, код отправлен. Введите его здесь или запросите новый.",
     }
 
 
@@ -454,11 +471,7 @@ def me(request: Request):
     avatar_url = None
     with SessionLocal() as session:
         user = session.get(User, user_id)
-        if (
-            user
-            and user.role.value == role
-            and user.role == UserRole.admin
-        ):
+        if user and user.role.value == role and user.role == UserRole.admin:
             profile = session.get(AdminProfile, user_id)
             avatar_url = profile.avatar_url if profile else None
     if not user or user.role.value != role:
@@ -512,6 +525,54 @@ def verify_email(
     return {"ok": True, "message": "Email успешно подтверждён"}
 
 
+@router.post("/verify-email/code")
+def verify_email_code(
+    body: VerifyCodeIn, request: Request, session: Session = Depends(get_session)
+):
+    verify_csrf(request)
+    rate_limit(session, request, "verify_code", 10, 3600)
+    email = clean_email(body.email)
+    user = session.scalar(select(User).where(User.email == email))
+    if not user:
+        raise ApiError(400, "bad_code", "Неверный или просроченный код")
+    if user.email_verified:
+        return {"ok": True, "message": "Email уже подтверждён"}
+
+    record = session.scalar(
+        select(EmailVerificationToken)
+        .where(
+            EmailVerificationToken.user_id == user.id,
+            EmailVerificationToken.used_at.is_(None),
+        )
+        .order_by(EmailVerificationToken.created_at.desc())
+    )
+    if not record:
+        raise ApiError(400, "bad_code", "Неверный или просроченный код")
+    now = utcnow()
+    if _aware(record.expires_at) <= now:
+        raise ApiError(410, "expired_code", "Код истёк. Запросите новый.")
+    expected = verification_code_hash(user.id, body.code)
+    if not hmac.compare_digest(record.token_hash, expected):
+        raise ApiError(400, "bad_code", "Неверный или просроченный код")
+
+    marked = session.execute(
+        update(EmailVerificationToken)
+        .where(EmailVerificationToken.id == record.id)
+        .where(EmailVerificationToken.used_at.is_(None))
+        .where(EmailVerificationToken.expires_at > now)
+        .values(used_at=now)
+    )
+    if marked.rowcount != 1:
+        raise ApiError(409, "already_used", "Код уже использован или истёк")
+    user.email_verified = True
+    user.email_verified_at = now
+    session.commit()
+    return {
+        "ok": True,
+        "message": "Email успешно подтверждён. Теперь войдите в аккаунт.",
+    }
+
+
 @router.post("/resend")
 def resend(body: ResendIn, request: Request, session: Session = Depends(get_session)):
     verify_csrf(request)
@@ -539,22 +600,26 @@ def resend(body: ResendIn, request: Request, session: Session = Depends(get_sess
                 .where(EmailVerificationToken.used_at.is_(None))
                 .values(used_at=now)
             )
-            raw = secrets.token_urlsafe(32)
+            code = new_verification_code()
             session.add(
                 EmailVerificationToken(
                     user_id=user.id,
-                    token_hash=token_hash(raw),
-                    expires_at=now + timedelta(hours=settings.verification_hours),
+                    token_hash=verification_code_hash(user.id, code),
+                    expires_at=now + timedelta(minutes=10),
                 )
             )
             session.commit()
             try:
-                deliver_verification(user.email, user.name, raw)
+                deliver_verification(user.email, user.name, code)
             except ApiError as error:
                 log.warning(
                     "Verification resend failed for user_id=%d: %s", user.id, error.code
                 )
     return {
         "ok": True,
-        "message": "Если такой email зарегистрирован, письмо отправлено",
+        "message": (
+            "Если email привязан к неподтверждённому аккаунту, запрос обработан. "
+            "Если аккаунт ещё не создан, сначала зарегистрируйтесь. "
+            "Если письма нет, проверьте папку «Спам» и повторите попытку через минуту."
+        ),
     }

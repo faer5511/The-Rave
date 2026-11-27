@@ -8,17 +8,6 @@ KEY_RE = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
 TG_RE = re.compile(r"^@?[A-Za-z0-9_]{5,32}$")
 
 
-def normalize_phone(raw: str) -> str:
-    d = re.sub(r"\D", "", raw or "")
-    if len(d) == 11 and d[0] in "78":
-        d = "7" + d[1:]
-    elif len(d) == 10:
-        d = "7" + d
-    if not 10 <= len(d) <= 15:
-        raise ValueError("Проверьте номер телефона")
-    return "+" + d
-
-
 class ItemIn(BaseModel):
     category_id: int
     quantity: int = Field(ge=1, le=50)
@@ -33,7 +22,6 @@ class OrderIn(BaseModel):
     promo_code: Optional[str] = None
     name: str
     email: str
-    phone: str
     telegram: Optional[str] = None
     consent: bool
     idempotency_key: str
@@ -54,11 +42,6 @@ class OrderIn(BaseModel):
         if not EMAIL_RE.match(v) or len(v) > 200:
             raise ValueError("Проверьте email")
         return v
-
-    @field_validator("phone")
-    @classmethod
-    def _phone(cls, v):
-        return normalize_phone(v)
 
     @field_validator("telegram")
     @classmethod

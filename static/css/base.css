@@ -39,8 +39,10 @@ body {
   overflow-x: clip;
   min-height: 100svh;
 }
+html.lock,
 body.lock {
   overflow: hidden;
+  overscroll-behavior: none;
 }
 a {
   color: inherit;

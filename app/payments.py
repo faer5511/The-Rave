@@ -74,6 +74,9 @@ class YooKassaProvider:
             "metadata": {"order_id": order.id},
         }
         if settings.yookassa_send_receipt:
+            customer = {"email": order.email}
+            if order.phone:
+                customer["phone"] = order.phone.lstrip("+")
             if (
                 order.discount
             ):  # со скидкой сумма позиций должна совпасть с итогом — одна строка
@@ -83,7 +86,7 @@ class YooKassaProvider:
                     (i.category_name, i.quantity, i.unit_price) for i in order.items
                 ]
             body["receipt"] = {
-                "customer": {"email": order.email, "phone": order.phone.lstrip("+")},
+                "customer": customer,
                 "items": [
                     {
                         "description": d[:128],

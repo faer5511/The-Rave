@@ -15,7 +15,7 @@ const AUTH_MODAL_HTML = `
         <div class="field"><label for="authPassword">Пароль</label><input id="authPassword" type="password" autocomplete="current-password" required></div>
         <button class="btn btn-red btn-lg" type="submit">Войти</button>
         <p class="auth-message" id="authLoginMessage"></p>
-        <button class="btn btn-ghost wide resend-link" id="authResend" type="button">Повторно отправить письмо подтверждения</button>
+        <button class="btn btn-ghost wide resend-link" id="authResend" type="button">Получить код подтверждения</button>
       </form>
       <form id="authRegisterForm" class="hide" novalidate>
         <div class="field"><label for="regName">Имя</label><input id="regName" autocomplete="name" required minlength="2" maxlength="120"></div>
@@ -25,6 +25,15 @@ const AUTH_MODAL_HTML = `
         <div class="field"><label for="regPassword2">Повторите пароль</label><input id="regPassword2" type="password" autocomplete="new-password" required minlength="8" maxlength="128"></div>
         <button class="btn btn-red btn-lg" type="submit">Зарегистрироваться</button>
         <p class="auth-message" id="authRegisterMessage"></p>
+      </form>
+      <form id="authVerifyForm" class="hide" novalidate>
+        <p class="auth-message">Введите код из письма. Он действует 10 минут.</p>
+        <div class="field"><label for="authVerifyEmail">Email</label><input id="authVerifyEmail" type="email" autocomplete="email" required maxlength="200"></div>
+        <div class="field"><label for="authVerifyCode">Код из письма</label><input id="authVerifyCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required></div>
+        <button class="btn btn-red btn-lg" type="submit">Подтвердить email</button>
+        <p class="auth-message" id="authVerifyMessage"></p>
+        <button class="btn btn-ghost wide" id="authVerifyResend" type="button">Отправить код повторно</button>
+        <button class="btn btn-ghost wide" id="authVerifyBack" type="button">Вернуться ко входу</button>
       </form>
       <div id="authProfile" class="hide">
         <p class="profile-name" id="profileName"></p>
@@ -36,6 +45,7 @@ const AUTH_MODAL_HTML = `
 
 (function initAuth() {
   "use strict";
+  const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   document.body.insertAdjacentHTML("beforeend", AUTH_MODAL_HTML);
 
   async function api(path, body) {
@@ -68,32 +78,40 @@ const AUTH_MODAL_HTML = `
   function openModal(tab) {
     modal.classList.add("open");
     modal.setAttribute("aria-hidden", "false");
-    document.body.classList.add("lock");
+    window.lockPageScroll();
     setTab(tab === "register" ? "register" : "login");
   }
 
   function closeModal() {
     modal.classList.remove("open");
     modal.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("lock");
+    window.unlockPageScroll();
   }
 
   function setTab(tab) {
     const register = tab === "register";
+    const verify = tab === "verify";
     document.querySelector("#authProfile").classList.add("hide");
     document
       .querySelector("#authLoginForm")
-      .classList.toggle("hide", register || tab === "profile");
+      .classList.toggle("hide", register || verify || tab === "profile");
     document
       .querySelector("#authRegisterForm")
-      .classList.toggle("hide", !register || tab === "profile");
+      .classList.toggle("hide", !register || verify || tab === "profile");
+    document.querySelector("#authVerifyForm").classList.toggle("hide", !verify);
     document.querySelector("#loginTab").classList.toggle("on", !register);
     document.querySelector("#registerTab").classList.toggle("on", register);
     document
       .querySelector(".auth-tabs")
-      .classList.toggle("hide", tab === "profile");
+      .classList.toggle("hide", tab === "profile" || verify);
     document.querySelector("#authTitle").textContent =
-      tab === "profile" ? "Профиль" : register ? "Регистрация" : "Вход";
+      tab === "profile"
+        ? "Профиль"
+        : verify
+          ? "Подтвердите email"
+          : register
+            ? "Регистрация"
+            : "Вход";
     document
       .querySelector("#authProfile")
       .classList.toggle("hide", tab !== "profile");
@@ -127,8 +145,7 @@ const AUTH_MODAL_HTML = `
     const displayName = isAdmin
       ? data.user.login
       : data.user.name || data.user.login;
-    document.querySelector("#userName").textContent =
-      displayName;
+    document.querySelector("#userName").textContent = displayName;
     const avatar = document.querySelector("#userAvatar");
     avatar.replaceChildren();
     if (isAdmin && data.user.avatar_url) {
@@ -216,7 +233,6 @@ const AUTH_MODAL_HTML = `
       const login = document.querySelector("#regLogin").value.trim();
       const email = document.querySelector("#regEmail").value.trim();
       const loginPattern = /^[A-Za-z0-9_.@-]{3,64}$/;
-      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
       if (name.length < 2 || name.length > 120) {
         message.textContent = "Введите имя (от 2 до 120 символов).";
         return;
@@ -226,7 +242,7 @@ const AUTH_MODAL_HTML = `
           "Логин: 3–64 символа, латинские буквы, цифры, точка, дефис или подчёркивание.";
         return;
       }
-      if (!emailPattern.test(email) || email.length > 200) {
+      if (!EMAIL_PATTERN.test(email) || email.length > 200) {
         message.textContent = "Проверьте email.";
         return;
       }
@@ -252,25 +268,82 @@ const AUTH_MODAL_HTML = `
           password,
           password2,
         });
-        message.textContent = data.message;
-        setTab("login");
-        document.querySelector("#authLogin").value =
-          document.querySelector("#regEmail").value;
+        const verificationEmail = document
+          .querySelector("#regEmail")
+          .value.trim();
+        document.querySelector("#regPassword").value = "";
+        document.querySelector("#regPassword2").value = "";
+        document.querySelector("#authVerifyEmail").value = verificationEmail;
+        document.querySelector("#authVerifyCode").value = "";
+        setTab("verify");
+        document.querySelector("#authVerifyMessage").textContent = data.message;
       } catch (error) {
         message.textContent = error.message;
       }
     });
 
+  document
+    .querySelector("#authVerifyForm")
+    .addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const email = document.querySelector("#authVerifyEmail").value.trim();
+      const code = document.querySelector("#authVerifyCode").value.trim();
+      const message = document.querySelector("#authVerifyMessage");
+      message.textContent = "";
+      if (!EMAIL_PATTERN.test(email)) {
+        message.textContent = "Проверьте email.";
+        return;
+      }
+      if (!/^\d{6}$/.test(code)) {
+        message.textContent = "Введите шестизначный код из письма.";
+        return;
+      }
+      try {
+        const data = await api("/api/auth/verify-email/code", { email, code });
+        setTab("login");
+        document.querySelector("#authLogin").value = email;
+        document.querySelector("#authLoginMessage").textContent = data.message;
+      } catch (error) {
+        message.textContent = error.message;
+      }
+    });
+
+  document
+    .querySelector("#authVerifyResend")
+    .addEventListener("click", async () => {
+      const email = document.querySelector("#authVerifyEmail").value.trim();
+      const message = document.querySelector("#authVerifyMessage");
+      if (!EMAIL_PATTERN.test(email)) {
+        message.textContent = "Проверьте email.";
+        return;
+      }
+      try {
+        const data = await api("/api/auth/resend", { email });
+        message.textContent = data.message;
+      } catch (error) {
+        message.textContent = error.message;
+      }
+    });
+
+  document.querySelector("#authVerifyBack").addEventListener("click", () => {
+    const email = document.querySelector("#authVerifyEmail").value.trim();
+    setTab("login");
+    document.querySelector("#authLogin").value = email;
+  });
+
   document.querySelector("#authResend").addEventListener("click", async () => {
     const email = document.querySelector("#authLogin").value.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    if (!EMAIL_PATTERN.test(email)) {
       document.querySelector("#authLoginMessage").textContent =
         "Введите email для повторной отправки.";
       return;
     }
     try {
       const data = await api("/api/auth/resend", { email });
-      document.querySelector("#authLoginMessage").textContent = data.message;
+      document.querySelector("#authVerifyEmail").value = email;
+      document.querySelector("#authVerifyCode").value = "";
+      setTab("verify");
+      document.querySelector("#authVerifyMessage").textContent = data.message;
     } catch (error) {
       document.querySelector("#authLoginMessage").textContent = error.message;
     }

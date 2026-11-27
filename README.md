@@ -31,13 +31,19 @@ Set these values in `.env`:
   reverse proxy; the app redirects HTTP requests and sends HSTS when configured
   with HTTPS.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, and
-  `SMTP_USE_SSL`: required for account verification emails. Port 587 uses
-  STARTTLS; port 465 uses SSL.
+  `SMTP_USE_SSL`: required for account verification and ticket emails. Port 587
+  uses STARTTLS; port 465 uses SSL. For Gmail, use `smtp.gmail.com`, port `587`,
+  `SMTP_USE_SSL=false`, your full Gmail address for `SMTP_USER` and `SMTP_FROM`,
+  and a Google app password for `SMTP_PASSWORD` (not your account password).
+  Restart the server after changing `.env`.
 - `SESSION_HOURS`: session lifetime, from 1 to 24 hours.
-- `VERIFICATION_HOURS`: verification link lifetime, from 1 to 168 hours.
+- `VERIFICATION_HOURS`: lifetime of previously issued verification links, from 1
+  to 168 hours. New registrations use a six-digit email code that expires after
+  10 minutes.
 
 Registration is unavailable until SMTP is configured. Account passwords are
-stored as bcrypt hashes; verification tokens are stored as SHA-256 hashes.
+stored as bcrypt hashes; verification codes are stored as keyed hashes and can
+only be used once.
 
 ## Initial administrator
 

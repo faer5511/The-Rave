@@ -13,7 +13,6 @@ const DEFAULT_CONFIG = {
   venue: {
     name: "Кластер Н",
     address: "Саратов, Привокзальная площадь, 1Д",
-    mapCenter: "51.5428086,46.0002541",
     map: "",
     landmark:
       "Ориентир — Привокзальная площадь, рядом с железнодорожным вокзалом.\nИщите здание «Кластер Н» по адресу 1Д.\nПриходите заранее: двери открываются в 17:00.",
@@ -150,9 +149,7 @@ function mapSrc() {
   const source = value.startsWith("<")
     ? (value.match(/src=["']([^"']+)["']/i) || [])[1]
     : value;
-  const location = cfg.venue.mapCenter
-    ? `ll=${encodeURIComponent(cfg.venue.mapCenter)}&q=${encodeURIComponent(cfg.venue.mapCenter)}`
-    : `q=${encodeURIComponent(cfg.venue.address)}`;
+  const location = `q=${encodeURIComponent(cfg.venue.address)}`;
 
   return source && /^https:\/\//i.test(source)
     ? source
@@ -273,6 +270,42 @@ $("#rCopy").addEventListener("click", async () => {
 });
 
 const ov = $("#ov");
+let lockedScrollY = 0;
+let bodyScrollStyles = null;
+
+function lockPageScroll() {
+  if (document.documentElement.classList.contains("lock")) return;
+
+  lockedScrollY = window.scrollY;
+  bodyScrollStyles = {
+    position: document.body.style.position,
+    top: document.body.style.top,
+    width: document.body.style.width,
+  };
+  document.documentElement.classList.add("lock");
+  document.body.classList.add("lock");
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${lockedScrollY}px`;
+  document.body.style.width = "100%";
+}
+
+function unlockPageScroll() {
+  if (!document.documentElement.classList.contains("lock")) return;
+
+  document.documentElement.classList.remove("lock");
+  document.body.classList.remove("lock");
+  document.body.style.position = bodyScrollStyles.position;
+  document.body.style.top = bodyScrollStyles.top;
+  document.body.style.width = bodyScrollStyles.width;
+  const scrollBehavior = document.documentElement.style.scrollBehavior;
+  document.documentElement.style.scrollBehavior = "auto";
+  window.scrollTo(0, lockedScrollY);
+  document.documentElement.style.scrollBehavior = scrollBehavior;
+  bodyScrollStyles = null;
+}
+
+window.lockPageScroll = lockPageScroll;
+window.unlockPageScroll = unlockPageScroll;
 
 function openModal() {
   const cart = calc();
@@ -293,14 +326,14 @@ function openModal() {
   $("#stDone").classList.add("hide");
   ov.classList.add("open");
   ov.setAttribute("aria-hidden", "false");
-  document.body.classList.add("lock");
+  lockPageScroll();
   setTimeout(() => $("#fName").focus(), 350);
 }
 
 function closeModal() {
   ov.classList.remove("open");
   ov.setAttribute("aria-hidden", "true");
-  document.body.classList.remove("lock");
+  unlockPageScroll();
 }
 
 $("#buyBtn").addEventListener("click", openModal);

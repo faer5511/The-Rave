@@ -342,7 +342,7 @@ class AdminProfile(Base):
 
 
 class EmailVerificationToken(Base):
-    """Одноразовый токен подтверждения email: в БД хранится только его хеш."""
+    """Одноразовый email-код или старый токен-ссылка: в БД хранится только хеш."""
 
     __tablename__ = "email_verification_tokens"
     id: Mapped[int] = mapped_column(primary_key=True)

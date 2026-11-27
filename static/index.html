@@ -18,9 +18,9 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Unbounded:wght@300;500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/css/base.css?v=admin-profile-sync" />
+    <link rel="stylesheet" href="/css/base.css?v=checkout-scroll-lock" />
     <link rel="stylesheet" href="/css/sections.css?v=3" />
-    <link rel="stylesheet" href="/css/modals.css" />
+    <link rel="stylesheet" href="/css/modals.css?v=checkout-scroll-lock" />
     <link rel="stylesheet" href="/css/responsive.css" />
     <link rel="stylesheet" href="/css/checkout.css" />
   </head>
@@ -151,9 +151,14 @@
               <div class="addr" id="rAddr"></div>
               <ul id="rList"></ul>
               <div class="btns">
-                <a class="btn btn-red" id="rOpen" target="_blank" rel="noopener"
-                  >Открыть в картах</a
+                <a
+                  class="btn btn-red"
+                  id="rOpen"
+                  target="_blank"
+                  rel="noopener"
                 >
+                  Открыть в картах
+                </a>
                 <button class="btn btn-ghost" id="rCopy" type="button">
                   Скопировать адрес
                 </button>
@@ -208,16 +213,6 @@
             </div>
 
             <div class="field">
-              <label for="fPhone">Телефон</label>
-              <input
-                id="fPhone"
-                type="tel"
-                autocomplete="tel"
-                placeholder="+7 900 000-00-00"
-              />
-              <div class="err">Проверьте номер телефона</div>
-            </div>
-            <div class="field">
               <label for="fTg">Telegram (необязательно)</label>
               <input id="fTg" autocomplete="off" placeholder="@username" />
               <div class="err">Формат: @username (5–32 символа)</div>
@@ -229,8 +224,8 @@
               autocomplete="off"
               aria-hidden="true"
             />
-            <label class="consent"
-              ><input type="checkbox" id="fConsent" />
+            <label class="consent">
+              <input type="checkbox" id="fConsent" />
               <span>
                 Согласен с
                 <a href="#" target="_blank" rel="noopener">офертой</a>
@@ -283,8 +278,8 @@
 
     <div class="toast" id="toast" role="status"></div>
 
-    <script src="/js/app.js?v=satellite-map-pin-centered"></script>
-    <script src="/js/checkout.js"></script>
-    <script type="module" src="/js/auth.js?v=admin-profile-sync"></script>
+    <script src="/js/app.js?v=checkout-scroll-lock"></script>
+    <script src="/js/checkout.js?v=checkout-scroll-lock"></script>
+    <script type="module" src="/js/auth.js?v=email-delivery-status"></script>
   </body>
 </html>

@@ -25,6 +25,7 @@
   max-height: calc(100svh - 32px);
   max-height: calc(100dvh - 32px);
   overflow: auto;
+  overscroll-behavior: contain;
   border-radius: 28px;
   border: 1px solid rgba(201, 56, 78, 0.28);
   background: linear-gradient(

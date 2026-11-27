@@ -231,12 +231,10 @@
     e.preventDefault();
     const name = $$("#fName").value.trim(),
       mail = $$("#fMail").value.trim(),
-      phone = $$("#fPhone").value.trim(),
       tg = $$("#fTg").value.trim();
     const checks = [
       ["fName", name.length >= 2],
       ["fMail", /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)],
-      ["fPhone", /^\d{10,15}$/.test(phone.replace(/\D/g, ""))],
       ["fTg", !tg || /^@?[A-Za-z0-9_]{5,32}$/.test(tg)],
     ];
     let ok = true;
@@ -265,7 +263,6 @@
           promo_code: PROMO ? PROMO.code : null,
           name,
           email: mail,
-          phone,
           telegram: tg || null,
           consent: true,
           idempotency_key: idemKey,
@@ -430,7 +427,7 @@
       const r = await api("/api/orders/" + id);
       ov.classList.add("open");
       ov.setAttribute("aria-hidden", "false");
-      document.body.classList.add("lock");
+      window.lockPageScroll();
       showOrder(r);
       history.replaceState(null, "", location.pathname);
     } catch (e) {
